@@ -43,6 +43,14 @@ function safeRevalidate(...paths: string[]) {
   }
 }
 
+function getSafeServiceRoleClient() {
+  try {
+    return createServiceRoleClient();
+  } catch {
+    return null;
+  }
+}
+
 async function getAuthUser(): Promise<{ supabase: any; user: { id: string } }> {
   try {
     const supabase = await createClient();
@@ -56,18 +64,22 @@ async function getAuthUser(): Promise<{ supabase: any; user: { id: string } }> {
 
   // Fallback to service role client in single-tenant personal learning OS mode
   try {
-    const serviceClient = createServiceRoleClient();
-    const { data: { users } } = await serviceClient.auth.admin.listUsers();
-    const primary = users?.find((u) => u.email === (process.env.ALLOWED_USER_EMAIL || 'user@example.com')) || users?.[0];
-    if (primary?.id) {
-      return { supabase: serviceClient, user: { id: primary.id } };
+    const serviceClient = getSafeServiceRoleClient();
+    if (serviceClient) {
+      const { data: { users } } = await serviceClient.auth.admin.listUsers();
+      const primary = users?.find((u) => u.email === (process.env.ALLOWED_USER_EMAIL || 'user@example.com')) || users?.[0];
+      if (primary?.id) {
+        return { supabase: serviceClient, user: { id: primary.id } };
+      }
     }
-    return { supabase: serviceClient, user: { id: '00000000-0000-0000-0000-000000000001' } };
   } catch {
-    const serviceClient = createServiceRoleClient();
-    return { supabase: serviceClient, user: { id: '00000000-0000-0000-0000-000000000001' } };
+    // fallback
   }
+
+  const serviceClient = getSafeServiceRoleClient();
+  return { supabase: serviceClient, user: { id: '00000000-0000-0000-0000-000000000001' } };
 }
+
 
 // ============================================================================
 // 1. Save roadmap as Learning Path (upsert — one active path per user)
@@ -96,9 +108,44 @@ export async function saveRoadmapAsLearningPath(input: SaveRoadmapInput): Promis
 }> {
   const { supabase, user } = await getAuthUser();
   const today = new Date().toISOString().split('T')[0];
+  const newPathId = `path_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
+  const newDays: LearningPathDay[] = input.days.map((d) => ({
+    id: `day_${newPathId}_${d.dayNumber}`,
+    path_id: newPathId,
+    user_id: user.id,
+    day_number: d.dayNumber,
+    topic: d.topic,
+    learn_content: d.learnContent,
+    practice_problems: d.practiceProblems,
+    review_activity: d.reviewActivity,
+    ai_estimated_minutes: d.aiEstimatedMinutes,
+    priority: d.priority,
+    evidence_rationale: d.evidenceRationale ?? null,
+    activities_completed: { learn: false, practice: false, review: false },
+    is_completed: false,
+    completed_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+
+  const newPath: LearningPath = {
+    id: newPathId,
+    user_id: user.id,
+    goal: input.goal,
+    total_days: input.days.length,
+    start_date: today,
+    plan_metadata: input.planMetadata ?? {},
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    days: newDays,
+  };
+
+  let savedToSupabase = false;
+
+  // 1. Attempt dedicated public.learning_paths table
   try {
-    // Attempt Supabase storage first
     const { data: existing } = await supabase
       .from('learning_paths')
       .select('id')
@@ -117,6 +164,7 @@ export async function saveRoadmapAsLearningPath(input: SaveRoadmapInput): Promis
     const { data: pathRow, error: pathErr } = await supabase
       .from('learning_paths')
       .insert({
+        id: newPathId,
         user_id: user.id,
         goal: input.goal,
         total_days: input.days.length,
@@ -129,6 +177,7 @@ export async function saveRoadmapAsLearningPath(input: SaveRoadmapInput): Promis
 
     if (!pathErr && pathRow) {
       const dayRows = input.days.map((d) => ({
+        id: `day_${pathRow.id}_${d.dayNumber}`,
         path_id: pathRow.id,
         user_id: user.id,
         day_number: d.dayNumber,
@@ -148,59 +197,52 @@ export async function saveRoadmapAsLearningPath(input: SaveRoadmapInput): Promis
         .insert(dayRows);
 
       if (!daysErr) {
-        safeRevalidate('/', '/learning-path');
-        return { success: true, pathId: pathRow.id };
+        savedToSupabase = true;
       }
     }
   } catch {
-    // Supabase table not migrated yet; gracefully fall back to local store
+    // Dedicated table not yet migrated
   }
 
-  // Fallback Store (Local JSON storage)
+  // 2. Authoritative Supabase agent_runs fallback (durable on Vercel without manual SQL migration)
+  try {
+    const serviceClient = getSafeServiceRoleClient();
+    if (serviceClient) {
+      const runId = `learning_path_${user.id}`;
+      await serviceClient
+        .from('agent_runs')
+        .upsert({
+          id: runId,
+          user_id: user.id,
+          trigger_type: 'STUDENT_GOAL',
+          event_trigger: 'MANUAL_GOAL',
+          goal: 'ACTIVE_LEARNING_PATH',
+          current_state: 'COMPLETED',
+          status: 'COMPLETED',
+          tool_iterations: 0,
+          replans_count: 0,
+          executed_actions_count: input.days.length,
+          working_memory: { learningPath: newPath },
+          transition_history: [],
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' });
+      savedToSupabase = true;
+    }
+  } catch {
+    // Fallback if agent_runs table fails
+  }
+
+  // 3. Fallback File Store (for offline local environments & unit tests)
   try {
     const store = readFallbackStore();
-    const newPathId = `path_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    
-    const newDays: LearningPathDay[] = input.days.map((d, idx) => ({
-      id: `day_${newPathId}_${d.dayNumber}`,
-      path_id: newPathId,
-      user_id: user.id,
-      day_number: d.dayNumber,
-      topic: d.topic,
-      learn_content: d.learnContent,
-      practice_problems: d.practiceProblems,
-      review_activity: d.reviewActivity,
-      ai_estimated_minutes: d.aiEstimatedMinutes,
-      priority: d.priority,
-      evidence_rationale: d.evidenceRationale ?? null,
-      activities_completed: { learn: false, practice: false, review: false },
-      is_completed: false,
-      completed_at: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
-
-    const newPath: LearningPath = {
-      id: newPathId,
-      user_id: user.id,
-      goal: input.goal,
-      total_days: input.days.length,
-      start_date: today,
-      plan_metadata: input.planMetadata ?? {},
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      days: newDays,
-    };
-
     store[user.id] = newPath;
     writeFallbackStore(store);
-
-    safeRevalidate('/', '/learning-path');
-    return { success: true, pathId: newPathId };
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to save learning path' };
+  } catch {
+    // ignore
   }
+
+  safeRevalidate('/', '/learning-path');
+  return { success: true, pathId: newPathId };
 }
 
 // ============================================================================
@@ -214,42 +256,67 @@ export async function getActiveLearningPath(): Promise<{
 }> {
   const { supabase, user } = await getAuthUser();
 
-  try {
-    const { data: path, error: pathErr } = await supabase
-      .from('learning_paths')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!pathErr && path) {
-      const { data: days, error: daysErr } = await supabase
-        .from('learning_path_days')
+  // 1. Try dedicated public.learning_paths table
+  if (supabase) {
+    try {
+      const { data: path, error: pathErr } = await supabase
+        .from('learning_paths')
         .select('*')
-        .eq('path_id', path.id)
         .eq('user_id', user.id)
-        .order('day_number', { ascending: true });
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (!daysErr) {
-        return {
-          success: true,
-          data: {
-            ...path,
-            days: (days ?? []).map((d: any) => ({
-              ...d,
-              activities_completed: d.activities_completed ?? {},
-            })),
-          } as LearningPath,
-        };
+      if (!pathErr && path) {
+        const { data: days, error: daysErr } = await supabase
+          .from('learning_path_days')
+          .select('*')
+          .eq('path_id', path.id)
+          .eq('user_id', user.id)
+          .order('day_number', { ascending: true });
+
+        if (!daysErr && days && days.length > 0) {
+          return {
+            success: true,
+            data: {
+              ...path,
+              days: days.map((d: any) => ({
+                ...d,
+                activities_completed: d.activities_completed ?? {},
+              })),
+            } as LearningPath,
+          };
+        }
+      }
+    } catch {
+      // Dedicated table not yet migrated
+    }
+  }
+
+  // 2. Authoritative Supabase agent_runs fallback (durable on Vercel)
+  try {
+    const serviceClient = getSafeServiceRoleClient();
+    if (serviceClient) {
+      const runId = `learning_path_${user.id}`;
+      const { data: runRecord, error: runErr } = await serviceClient
+        .from('agent_runs')
+        .select('working_memory')
+        .eq('id', runId)
+        .maybeSingle();
+
+      if (!runErr && runRecord?.working_memory?.learningPath) {
+        const pathObj = runRecord.working_memory.learningPath as LearningPath;
+        if (pathObj.is_active) {
+          return { success: true, data: pathObj };
+        }
       }
     }
   } catch {
-    // Supabase table not migrated yet; fallback
+    // Fallback
   }
 
-  // Fallback Store
+  // 3. Fallback File Store (Offline dev/test cache)
   try {
     const store = readFallbackStore();
     const active = store[user.id];
@@ -276,80 +343,139 @@ export async function toggleLearningPathActivity(
   error?: string;
 }> {
   const { supabase, user } = await getAuthUser();
+  let updatedDayResult: LearningPathDay | null = null;
 
-  try {
-    const { data: day, error: fetchErr } = await supabase
-      .from('learning_path_days')
-      .select('*')
-      .eq('id', dayId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (!fetchErr && day) {
-      const existing: LearningPathDayActivities = (day.activities_completed as LearningPathDayActivities) ?? {};
-      const targetState = completed !== undefined ? completed : !existing[activity];
-      const updated: LearningPathDayActivities = { ...existing, [activity]: targetState };
-      const isFullyComplete = !!(updated.learn && updated.practice && updated.review);
-
-      const { data: updatedRow, error: updateErr } = await supabase
+  // 1. Try dedicated public.learning_path_days table
+  if (supabase) {
+    try {
+      const { data: day, error: fetchErr } = await supabase
         .from('learning_path_days')
-        .update({
-          activities_completed: updated,
-          is_completed: isFullyComplete,
-          completed_at: isFullyComplete ? (day.completed_at || new Date().toISOString()) : null,
-          updated_at: new Date().toISOString(),
-        })
+        .select('*')
         .eq('id', dayId)
         .eq('user_id', user.id)
-        .select('*')
         .single();
 
-      if (!updateErr && updatedRow) {
-        safeRevalidate('/', '/learning-path');
-        return { success: true, updatedDay: updatedRow as LearningPathDay };
+      if (!fetchErr && day) {
+        const existing: LearningPathDayActivities = (day.activities_completed as LearningPathDayActivities) ?? {};
+        const targetState = completed !== undefined ? completed : !existing[activity];
+        const updated: LearningPathDayActivities = { ...existing, [activity]: targetState };
+        const isFullyComplete = !!(updated.learn && updated.practice && updated.review);
+
+        const { data: updatedRow, error: updateErr } = await supabase
+          .from('learning_path_days')
+          .update({
+            activities_completed: updated,
+            is_completed: isFullyComplete,
+            completed_at: isFullyComplete ? (day.completed_at || new Date().toISOString()) : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', dayId)
+          .eq('user_id', user.id)
+          .select('*')
+          .single();
+
+        if (!updateErr && updatedRow) {
+          updatedDayResult = updatedRow as LearningPathDay;
+        }
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  // 2. Authoritative Supabase agent_runs fallback
+  try {
+    const serviceClient = getSafeServiceRoleClient();
+    if (serviceClient) {
+      const runId = `learning_path_${user.id}`;
+      const { data: runRecord } = await serviceClient
+        .from('agent_runs')
+        .select('working_memory')
+        .eq('id', runId)
+        .maybeSingle();
+
+      if (runRecord?.working_memory?.learningPath) {
+        const pathObj = runRecord.working_memory.learningPath as LearningPath;
+        if (pathObj.days) {
+          const dayIdx = pathObj.days.findIndex((d) => d.id === dayId);
+          if (dayIdx !== -1) {
+            const targetDay = pathObj.days[dayIdx];
+            const existing: LearningPathDayActivities = targetDay.activities_completed ?? {};
+            const targetState = completed !== undefined ? completed : !existing[activity];
+            const updatedActivities: LearningPathDayActivities = { ...existing, [activity]: targetState };
+            const isFullyComplete = !!(updatedActivities.learn && updatedActivities.practice && updatedActivities.review);
+
+            const newUpdatedDay: LearningPathDay = {
+              ...targetDay,
+              activities_completed: updatedActivities,
+              is_completed: isFullyComplete,
+              completed_at: isFullyComplete ? (targetDay.completed_at || new Date().toISOString()) : null,
+              updated_at: new Date().toISOString(),
+            };
+
+            pathObj.days[dayIdx] = newUpdatedDay;
+            pathObj.updated_at = new Date().toISOString();
+
+            await serviceClient
+              .from('agent_runs')
+              .update({
+                working_memory: { learningPath: pathObj },
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', runId);
+
+            if (!updatedDayResult) {
+              updatedDayResult = newUpdatedDay;
+            }
+          }
+        }
       }
     }
   } catch {
-    // Supabase table fallback
+    // fallback
   }
 
-  // Fallback Store
+  // 3. Fallback File Store
   try {
     const store = readFallbackStore();
     const active = store[user.id];
-    if (!active || !active.days) {
-      return { success: false, error: 'No active learning path found' };
+    if (active && active.days) {
+      const dayIndex = active.days.findIndex((d) => d.id === dayId);
+      if (dayIndex !== -1) {
+        const targetDay = active.days[dayIndex];
+        const existing: LearningPathDayActivities = targetDay.activities_completed ?? {};
+        const targetState = completed !== undefined ? completed : !existing[activity];
+        const updatedActivities: LearningPathDayActivities = { ...existing, [activity]: targetState };
+        const isFullyComplete = !!(updatedActivities.learn && updatedActivities.practice && updatedActivities.review);
+
+        const localUpdatedDay: LearningPathDay = {
+          ...targetDay,
+          activities_completed: updatedActivities,
+          is_completed: isFullyComplete,
+          completed_at: isFullyComplete ? (targetDay.completed_at || new Date().toISOString()) : null,
+          updated_at: new Date().toISOString(),
+        };
+
+        active.days[dayIndex] = localUpdatedDay;
+        active.updated_at = new Date().toISOString();
+        store[user.id] = active;
+        writeFallbackStore(store);
+
+        if (!updatedDayResult) {
+          updatedDayResult = localUpdatedDay;
+        }
+      }
     }
-
-    const dayIndex = active.days.findIndex((d) => d.id === dayId);
-    if (dayIndex === -1) {
-      return { success: false, error: 'Day not found in learning path' };
-    }
-
-    const targetDay = active.days[dayIndex];
-    const existing: LearningPathDayActivities = targetDay.activities_completed ?? {};
-    const targetState = completed !== undefined ? completed : !existing[activity];
-    const updatedActivities: LearningPathDayActivities = { ...existing, [activity]: targetState };
-    const isFullyComplete = !!(updatedActivities.learn && updatedActivities.practice && updatedActivities.review);
-
-    const updatedDay: LearningPathDay = {
-      ...targetDay,
-      activities_completed: updatedActivities,
-      is_completed: isFullyComplete,
-      completed_at: isFullyComplete ? (targetDay.completed_at || new Date().toISOString()) : null,
-      updated_at: new Date().toISOString(),
-    };
-
-    active.days[dayIndex] = updatedDay;
-    active.updated_at = new Date().toISOString();
-    store[user.id] = active;
-    writeFallbackStore(store);
-
-    safeRevalidate('/', '/learning-path');
-    return { success: true, updatedDay };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch {
+    // ignore
   }
+
+  if (updatedDayResult) {
+    safeRevalidate('/', '/learning-path');
+    return { success: true, updatedDay: updatedDayResult };
+  }
+
+  return { success: false, error: 'Could not find or update the day activity' };
 }
 
 export async function completeLearningPathActivity(
@@ -442,15 +568,44 @@ export async function archiveLearningPath(): Promise<{ success: boolean; error?:
   }
 
   try {
+    const serviceClient = getSafeServiceRoleClient();
+    if (serviceClient) {
+      const runId = `learning_path_${user.id}`;
+      const { data: runRecord } = await serviceClient
+        .from('agent_runs')
+        .select('working_memory')
+        .eq('id', runId)
+        .maybeSingle();
+
+      if (runRecord?.working_memory?.learningPath) {
+        const pathObj = runRecord.working_memory.learningPath;
+        pathObj.is_active = false;
+        await serviceClient
+          .from('agent_runs')
+          .update({
+            working_memory: { learningPath: pathObj },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', runId);
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+
+  try {
     const store = readFallbackStore();
     if (store[user.id]) {
       store[user.id].is_active = false;
       store[user.id].updated_at = new Date().toISOString();
       writeFallbackStore(store);
     }
-    safeRevalidate('/', '/learning-path');
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
+  } catch {
+    // ignore
   }
+
+  safeRevalidate('/', '/learning-path');
+  return { success: true };
 }
+

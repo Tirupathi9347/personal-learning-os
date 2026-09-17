@@ -1,104 +1,156 @@
-import fs from 'fs';
-import path from 'path';
-
-try {
-  const envPath = path.resolve('.env.local');
-  if (fs.existsSync(envPath)) {
-    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
-        const idx = trimmed.indexOf('=');
-        const k = trimmed.slice(0, idx).trim();
-        const v = trimmed.slice(idx + 1).trim();
-        if (!process.env[k]) process.env[k] = v;
-      }
-    }
-  }
-} catch (e) {
-  console.warn('Env load notice:', e);
-}
-
-import { createServiceRoleClient } from '../src/lib/supabase/server';
-import { saveRoadmapAsLearningPath, getActiveLearningPath, toggleLearningPathActivity, getLearningPathTodaySection } from '../src/app/actions/learning-path-actions';
+import {
+  saveRoadmapAsLearningPath,
+  getActiveLearningPath,
+  toggleLearningPathActivity,
+  getLearningPathTodaySection,
+  archiveLearningPath,
+} from '../src/app/actions/learning-path-actions';
 
 async function main() {
-  console.log('=== Testing Learning Path Persistence ===');
-  
-  const supabase = createServiceRoleClient();
-  
-  // 1. Check if tables exist
-  const { data: pathCheck, error: checkErr } = await supabase.from('learning_paths').select('id').limit(1);
-  if (checkErr) {
-    console.error('learning_paths table check error:', checkErr.message);
-  } else {
-    console.log('✓ learning_paths table exists, rows found:', pathCheck?.length);
-  }
+  console.log('--- Starting Comprehensive Learning Path Verification ---');
 
-  // 2. Test saving a 2-day roadmap
-  const saveRes = await saveRoadmapAsLearningPath({
-    goal: 'Learn Binary Tree Traversal & Recursion in 2 Days',
+  // Step 1: Save a sample 3-day roadmap
+  const saveResult = await saveRoadmapAsLearningPath({
+    goal: 'Master Dynamic Programming in 3 Days',
     days: [
       {
         dayNumber: 1,
-        topic: 'Binary Tree Traversal Basics (In-order, Pre-order, Post-order)',
-        learnContent: 'Understand tree nodes, recursion call stack, DFS traversals.',
+        topic: '1D Memoization & Tabulation',
+        learnContent: 'Understand state transition tables and Fibonacci pattern',
         practiceProblems: 3,
-        reviewActivity: 'Review traversal recursion tracing mistakes.',
-        aiEstimatedMinutes: 45,
+        reviewActivity: 'Review time and space complexity tradeoffs',
+        aiEstimatedMinutes: 60,
         priority: 'HIGH',
-        evidenceRationale: 'Telemetry indicates beginner status with trees.',
+        evidenceRationale: 'Essential foundation for dynamic programming mastery',
       },
       {
         dayNumber: 2,
-        topic: 'BST Operations & Recursive Search',
-        learnContent: 'BST properties, insertion, deletion, searching.',
-        practiceProblems: 5,
-        reviewActivity: 'Review edge cases with null nodes.',
+        topic: '2D Grid & Subsequence Patterns',
+        learnContent: 'Unique Paths and Longest Common Subsequence state formulation',
+        practiceProblems: 3,
+        reviewActivity: 'Diagram the 2D grid transitions',
+        aiEstimatedMinutes: 75,
+        priority: 'HIGH',
+        evidenceRationale: 'Common pattern in LeetCode Medium problem sets',
+      },
+      {
+        dayNumber: 3,
+        topic: 'Knapsack & Interval DP',
+        learnContent: '0/1 Knapsack, Unbounded Knapsack, and Target Sum variations',
+        practiceProblems: 2,
+        reviewActivity: 'Consolidate DP decision tree templates in notes',
         aiEstimatedMinutes: 90,
         priority: 'MEDIUM',
-        evidenceRationale: 'Reinforces day 1 traversal mastery.',
+        evidenceRationale: 'Final consolidation milestone',
+      },
+    ],
+    planMetadata: { source: 'VerificationScript' },
+  });
+
+  console.log('1. saveRoadmapAsLearningPath result:', saveResult);
+  if (!saveResult.success || !saveResult.pathId) {
+    throw new Error('Failed to save learning path: ' + saveResult.error);
+  }
+
+  // Step 2: Hydrate active learning path
+  const activeResult = await getActiveLearningPath();
+  console.log('2. getActiveLearningPath result:', {
+    success: activeResult.success,
+    id: activeResult.data?.id,
+    goal: activeResult.data?.goal,
+    total_days: activeResult.data?.total_days,
+    daysCount: activeResult.data?.days?.length,
+  });
+
+  if (!activeResult.success || !activeResult.data || activeResult.data.days?.length !== 3) {
+    throw new Error('getActiveLearningPath did not return expected 3-day path');
+  }
+
+  // Step 3: Complete all 3 activities on Day 1
+  const day1 = activeResult.data.days[0];
+  await toggleLearningPathActivity(day1.id, 'learn', true);
+  await toggleLearningPathActivity(day1.id, 'practice', true);
+  const day1Final = await toggleLearningPathActivity(day1.id, 'review', true);
+
+  console.log('3. Completed Day 1 activities result:', {
+    success: day1Final.success,
+    is_completed: day1Final.updatedDay?.is_completed,
+    activities: day1Final.updatedDay?.activities_completed,
+  });
+
+  if (!day1Final.updatedDay?.is_completed) {
+    throw new Error('Day 1 should be marked is_completed: true after learn, practice, review');
+  }
+
+  // Step 4: Check Dashboard Today's Section
+  const todaySection = await getLearningPathTodaySection();
+  console.log('4. getLearningPathTodaySection with 1 day done:', {
+    currentDayNumber: todaySection.data?.currentDayNumber,
+    completedDaysCount: todaySection.data?.completedDaysCount,
+    overallProgress: todaySection.data?.overallProgress,
+  });
+
+  if (todaySection.data?.completedDaysCount !== 1 || todaySection.data?.overallProgress !== 33) {
+    throw new Error('Progress computation mismatch: expected 1 completed day and 33% progress');
+  }
+
+  // Step 5: Test Archiving
+  const archiveResult = await archiveLearningPath();
+  console.log('5. archiveLearningPath result:', archiveResult);
+  if (!archiveResult.success) {
+    throw new Error('archiveLearningPath failed');
+  }
+
+  const afterArchive = await getActiveLearningPath();
+  console.log('6. getActiveLearningPath after archive:', afterArchive.data);
+  if (afterArchive.data !== null) {
+    throw new Error('Expected null active learning path after archiving');
+  }
+
+  // Step 6: Test Flat Milestone list save
+  const flatSaveResult = await saveRoadmapAsLearningPath({
+    goal: 'Learn Docker and Kubernetes in 2 Steps',
+    days: [
+      {
+        dayNumber: 1,
+        topic: 'Docker Containers & Multi-stage Builds',
+        learnContent: 'Containerization principles and Dockerfile best practices',
+        practiceProblems: 2,
+        reviewActivity: 'Review container security principles',
+        aiEstimatedMinutes: 50,
+        priority: 'MEDIUM',
+      },
+      {
+        dayNumber: 2,
+        topic: 'Kubernetes Pods & Deployments',
+        learnContent: 'Declarative YAML manifests and service routing',
+        practiceProblems: 2,
+        reviewActivity: 'Verify rollout strategies',
+        aiEstimatedMinutes: 60,
+        priority: 'HIGH',
       },
     ],
   });
 
-  console.log('Save Roadmap result:', saveRes);
-
-  // 3. Test retrieving active learning path
-  const activeRes = await getActiveLearningPath();
-  console.log('Active Learning Path:', {
-    success: activeRes.success,
-    goal: activeRes.data?.goal,
-    totalDays: activeRes.data?.total_days,
-    daysCount: activeRes.data?.days?.length,
-  });
-
-  if (activeRes.data?.days?.[0]) {
-    const day1 = activeRes.data.days[0];
-    console.log('Testing activity check-off on Day 1 (learn):');
-    const toggleRes = await toggleLearningPathActivity(day1.id, 'learn', true);
-    console.log('Toggle result:', {
-      success: toggleRes.success,
-      activities: toggleRes.updatedDay?.activities_completed,
-      isCompleted: toggleRes.updatedDay?.is_completed,
-    });
+  console.log('7. Flat Milestone save result:', flatSaveResult);
+  if (!flatSaveResult.success) {
+    throw new Error('Flat milestone save failed');
   }
 
-  // 4. Test Today section
-  const todayRes = await getLearningPathTodaySection();
-  console.log('Today Section for Dashboard:', {
-    success: todayRes.success,
-    goal: todayRes.data?.goal,
-    currentDayNumber: todayRes.data?.currentDayNumber,
-    overallProgress: todayRes.data?.overallProgress,
-    currentDayTopic: todayRes.data?.currentDay?.topic,
-    currentDayActivities: todayRes.data?.currentDay?.activities_completed,
+  const activeFlat = await getActiveLearningPath();
+  console.log('8. Active flat path hydrated:', {
+    goal: activeFlat.data?.goal,
+    total_days: activeFlat.data?.total_days,
   });
 
-  console.log('=== Learning Path Verification Complete ===');
+  if (activeFlat.data?.total_days !== 2) {
+    throw new Error('Expected 2 days for flat milestone plan');
+  }
+
+  console.log('--- All Learning Path Persistence & Workflow Tests Passed! ---');
 }
 
-main().catch((e) => {
-  console.error('Fatal test error:', e);
+main().catch((err) => {
+  console.error('Verification failed:', err);
   process.exit(1);
 });

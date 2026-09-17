@@ -375,6 +375,60 @@ export function LearningCoachView() {
     });
   };
 
+  const handleSaveToLearningPath = async () => {
+    if (!runResult?.learningPlan?.steps || runResult.learningPlan.steps.length === 0) return;
+    setIsSavingPath(true);
+    setSavePathResult(null);
+
+    try {
+      const planSteps = runResult.learningPlan.steps;
+      const formattedDays = planSteps.map((step, sIdx) => {
+        const meta = (step.metadata as Record<string, any>) || {};
+        const dayNum = (meta?.dayNumber as number) ?? sIdx + 1;
+        const topic = (meta?.topic as string) ?? step.title;
+        const learnContent = (meta?.learnContent as string) ?? step.description;
+        const practiceProblems = (meta?.practiceProblems as number) ?? 2;
+        const reviewActivity = (meta?.reviewActivity as string) ?? 'Review key takeaways & verify code';
+        const evidenceRationale = (meta?.evidenceRationale as string) ?? step.rationale;
+        const aiMinutes = (meta?.aiEstimatedMinutes as number) ?? (step.estimatedEffort?.estimatedMinutes ?? 45);
+        const aiPriority = (step.priority as DayPriority) || 'MEDIUM';
+
+        const edit = dayEdits[step.id] ?? { isEdited: false };
+        const displayMinutes = edit.editedMinutes ?? aiMinutes;
+        const displayPriority = (edit.editedPriority ?? aiPriority) as any;
+
+        return {
+          dayNumber: dayNum,
+          topic,
+          learnContent,
+          practiceProblems,
+          reviewActivity,
+          aiEstimatedMinutes: displayMinutes,
+          priority: displayPriority,
+          evidenceRationale,
+        };
+      });
+
+      const res = await saveRoadmapAsLearningPath({
+        goal: runResult.learningPlan.goal || goalText || 'Personal Learning Goal',
+        days: formattedDays,
+        planMetadata: {
+          planId: runResult.learningPlan.planId,
+          priority: runResult.learningPlan.priority,
+          totalMinutes: totalDurationMins,
+          source: 'LearningCoach',
+        },
+      });
+
+      setSavePathResult(res);
+    } catch (err: any) {
+      setSavePathResult({ success: false, error: err.message || 'Failed to save learning path' });
+    } finally {
+      setIsSavingPath(false);
+    }
+  };
+
+
   const handleReset = () => {
     setGoalText('');
     setRunResult(null);
@@ -1127,140 +1181,8 @@ export function LearningCoachView() {
                       </div>
                     </div>
                   );
+
                 })}
-
-                {/* ADD TO LEARNING PATH BUTTON */}
-                <div className="mt-6 p-5 rounded-2xl bg-[var(--exec-surface-secondary)] border border-[var(--exec-border)] space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 shrink-0">
-                      <BookMarked className="w-4 h-4" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-heading font-bold text-[var(--exec-text)]">
-                        Ready to save this roadmap?
-                      </p>
-                      <p className="text-[11px] text-[var(--exec-text-muted)] leading-relaxed">
-                        You can edit the time and priority of each day above before adding to your Learning Path.
-                        {Object.values(dayEdits).some((e) => e.isEdited) && (
-                          <span className="ml-1 text-sky-600 dark:text-sky-400 font-semibold">
-                            {Object.values(dayEdits).filter((e) => e.isEdited).length} day(s) customized.
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  {savePathResult?.success ? (
-                    <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-3">
-                      <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        <span>Saved to Your Learning Path!</span>
-                      </div>
-                      <p className="text-[11px] text-[var(--exec-text-muted)]">
-                        Your personalized day-by-day plan is now active. Track daily activities, check off progress, and see today&apos;s tasks on your dashboard.
-                      </p>
-                      <div className="flex items-center gap-2 pt-1">
-                        <Link href="/learning-path" className="flex-1">
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            className="w-full justify-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
-                          >
-                            <Milestone className="w-3.5 h-3.5" />
-                            Open Learning Path
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSavePathResult(null)}
-                          className="text-xs text-[var(--exec-text-muted)]"
-                        >
-                          Dismiss
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {savePathResult?.error && (
-                        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-400">
-                          {savePathResult.error}
-                        </div>
-                      )}
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={isSavingPath || isPending}
-                        onClick={async () => {
-                          if (!runResult?.learningPlan?.steps) return;
-                          setIsSavingPath(true);
-                          setSavePathResult(null);
-
-                          try {
-                            const steps = runResult.learningPlan.steps;
-                            const formattedDays = steps.map((step, sIdx) => {
-                              const meta = step.metadata as Record<string, any>;
-                              const dayNum = (meta?.dayNumber as number) ?? sIdx + 1;
-                              const topic = (meta?.topic as string) ?? step.title;
-                              const learnContent = (meta?.learnContent as string) ?? step.description;
-                              const practiceProblems = (meta?.practiceProblems as number) ?? 3;
-                              const reviewActivity = (meta?.reviewActivity as string) ?? 'Review notes';
-                              const evidenceRationale = (meta?.evidenceRationale as string) ?? step.rationale;
-                              const aiMinutes = (meta?.aiEstimatedMinutes as number) ?? (step.estimatedEffort?.estimatedMinutes ?? 60);
-                              const aiPriority = step.priority as DayPriority;
-
-                              const edit = dayEdits[step.id] ?? { isEdited: false };
-                              const displayMinutes = edit.editedMinutes ?? aiMinutes;
-                              const displayPriority = (edit.editedPriority ?? aiPriority) as any;
-
-                              return {
-                                dayNumber: dayNum,
-                                topic,
-                                learnContent,
-                                practiceProblems,
-                                reviewActivity,
-                                aiEstimatedMinutes: displayMinutes,
-                                priority: displayPriority,
-                                evidenceRationale,
-                              };
-                            });
-
-                            const res = await saveRoadmapAsLearningPath({
-                              goal: runResult.learningPlan.goal || goalText || 'Personal Learning Goal',
-                              days: formattedDays,
-                              planMetadata: {
-                                planId: runResult.learningPlan.planId,
-                                priority: runResult.learningPlan.priority,
-                                totalMinutes: totalDurationMins,
-                                source: 'LearningCoach',
-                              },
-                            });
-
-                            setSavePathResult(res);
-                          } catch (err: any) {
-                            setSavePathResult({ success: false, error: err.message || 'Failed to save learning path' });
-                          } finally {
-                            setIsSavingPath(false);
-                          }
-                        }}
-                        className="w-full justify-center gap-2 font-medium shadow-sm bg-sky-600 hover:bg-sky-700 text-white"
-                      >
-                        {isSavingPath ? (
-                          <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            Saving to Learning Path...
-                          </>
-                        ) : (
-                          <>
-                            <BookMarked className="w-3.5 h-3.5" />
-                            Add to Learning Path
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                </div>
               </div>
             ) : (
               /* ================================================================
@@ -1369,7 +1291,90 @@ export function LearningCoachView() {
                 })}
               </div>
             )}
+
+            {/* ADD TO LEARNING PATH BUTTON */}
+            <div className="mt-4 p-5 rounded-2xl bg-[var(--exec-surface-secondary)] border border-[var(--exec-border)] space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 shrink-0">
+                  <BookMarked className="w-4 h-4" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-heading font-bold text-[var(--exec-text)]">
+                    Ready to save this roadmap?
+                  </p>
+                  <p className="text-[11px] text-[var(--exec-text-muted)] leading-relaxed">
+                    Save this personalized roadmap directly into your active Learning Path to track daily practice, schedule reminders, and see today&apos;s tasks on your dashboard.
+                    {Object.values(dayEdits).some((e) => e.isEdited) && (
+                      <span className="ml-1 text-sky-600 dark:text-sky-400 font-semibold">
+                        ({Object.values(dayEdits).filter((e) => e.isEdited).length} day(s) customized)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {savePathResult?.success ? (
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    <span>Saved to Your Learning Path!</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--exec-text-muted)]">
+                    Your personalized plan is now active across your account and dashboard.
+                  </p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Link href="/learning-path" className="flex-1">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="w-full justify-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        <Milestone className="w-3.5 h-3.5" />
+                        Open Learning Path
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSavePathResult(null)}
+                      className="text-xs text-[var(--exec-text-muted)]"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {savePathResult?.error && (
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-400">
+                      {savePathResult.error}
+                    </div>
+                  )}
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={isSavingPath || isPending}
+                    onClick={handleSaveToLearningPath}
+                    className="w-full justify-center gap-2 font-medium shadow-sm bg-sky-600 hover:bg-sky-700 text-white"
+                  >
+                    {isSavingPath ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Saving to Learning Path...
+                      </>
+                    ) : (
+                      <>
+                        <BookMarked className="w-3.5 h-3.5" />
+                        Add to Learning Path
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
+
 
           {/* 5. Contextual Phase 5 Human Approval Gate */}
           {runResult.approvalProposal && approvalStatus !== 'APPROVED' && approvalStatus !== 'REJECTED' && (
