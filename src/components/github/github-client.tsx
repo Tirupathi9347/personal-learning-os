@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { GitHubActivityLog, GitHubRepo } from '@/types';
-import { syncGitHubData } from '@/app/actions/github-actions';
+import { syncGitHubData, getSyncedGitHubRepos, getSyncedGitHubActivity } from '@/app/actions/github-actions';
 import { ContributionHeatmap } from '@/components/github/contribution-heatmap';
 import { LanguageBreakdown } from '@/components/github/language-breakdown';
 import { GitBranch, RefreshCw, ExternalLink, Loader2, GitCommit, GitPullRequest, AlertCircle, Star, CheckCircle2 } from 'lucide-react';
@@ -27,9 +27,18 @@ export function GitHubClient({ initialRepos, initialActivities }: GitHubClientPr
     setMessage(null);
 
     const res = await syncGitHubData();
-    setIsSyncing(false);
-
     if (res.success) {
+      try {
+        const [updatedRepos, updatedActivities] = await Promise.all([
+          getSyncedGitHubRepos(),
+          getSyncedGitHubActivity(),
+        ]);
+        setRepos(updatedRepos);
+        setActivities(updatedActivities);
+      } catch {
+        // Fallback
+      }
+
       const pruneMsg = res.prunedReposCount > 0 ? ` pruned ${res.prunedReposCount} deleted repos,` : '';
       setMessage({
         type: 'success',
@@ -38,6 +47,7 @@ export function GitHubClient({ initialRepos, initialActivities }: GitHubClientPr
     } else {
       setMessage({ type: 'error', text: res.error || 'GitHub Sync failed.' });
     }
+    setIsSyncing(false);
   };
 
   return (
