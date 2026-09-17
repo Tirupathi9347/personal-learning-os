@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Skills Graph - Personal Learning OS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=JetBrains+Mono:wght@500;700&amp;family=Inter:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-secondary-fixed-variant": "#2f2ebe",
+                        "outline": "#869397",
+                        "on-tertiary-fixed": "#2a1700",
+                        "primary": "#4cd7f6",
+                        "outline-variant": "#3d494c",
+                        "primary-fixed-dim": "#4cd7f6",
+                        "tertiary-fixed": "#ffddb8",
+                        "surface-container-lowest": "#0b0e15",
+                        "secondary-fixed-dim": "#c0c1ff",
+                        "surface-container-low": "#181c23",
+                        "on-secondary": "#1000a9",
+                        "surface-container-high": "#272a32",
+                        "inverse-surface": "#e0e2ed",
+                        "surface-dim": "#10131b",
+                        "on-secondary-container": "#b0b2ff",
+                        "tertiary": "#ffb95f",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "secondary-container": "#3131c0",
+                        "on-surface": "#e0e2ed",
+                        "on-tertiary": "#472a00",
+                        "surface": "#10131b",
+                        "on-secondary-fixed": "#07006c",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#e79400",
+                        "on-background": "#e0e2ed",
+                        "error": "#ffb4ab",
+                        "surface-container-highest": "#32353d",
+                        "background": "#10131b",
+                        "on-tertiary-container": "#563400",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#e1e0ff",
+                        "on-surface-variant": "#bcc9cd",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "on-primary-fixed-variant": "#004e5c",
+                        "surface-variant": "#32353d",
+                        "on-primary-container": "#00424f",
+                        "primary-container": "#06b6d4",
+                        "inverse-primary": "#00687a",
+                        "primary-fixed": "#acedff",
+                        "secondary": "#c0c1ff",
+                        "on-error-container": "#ffdad6",
+                        "surface-tint": "#4cd7f6",
+                        "inverse-on-surface": "#2d3038",
+                        "on-primary-fixed": "#001f26",
+                        "surface-container": "#1c2027",
+                        "surface-bright": "#363941",
+                        "on-primary": "#003640"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        "stack-dense": "4px",
+                        "container-padding": "24px",
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "stack-compact": "8px"
+                    },
+                    fontFamily: {
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "data-mono": ["JetBrains Mono"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["JetBrains Mono"],
+                        "body-md": ["Inter"]
+                    },
+                    fontSize: {
+                        "display-lg": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "data-mono": ["13px", { lineHeight: "16px", letterSpacing: "0.02em", fontWeight: "500" }],
+                        "headline-md": ["24px", { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600" }],
+                        "body-sm": ["12px", { lineHeight: "18px", letterSpacing: "0em", fontWeight: "400" }],
+                        "label-caps": ["10px", { lineHeight: "12px", letterSpacing: "0.1em", fontWeight: "700" }],
+                        "body-md": ["14px", { lineHeight: "22px", letterSpacing: "0em", fontWeight: "400" }]
+                    }
+                }
+            }
+        };
+    </script>
+<style>
+        /* Glassmorphism & Hover effects */
+        .glass-panel {
+            background: rgba(17, 23, 38, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid theme('colors.surface-variant');
+        }
+        .skill-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .skill-card:hover {
+            border-color: theme('colors.primary-container');
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+        }
+        .cyber-button-ghost {
+            border: 1px solid theme('colors.surface-variant');
+            transition: all 0.2s;
+        }
+        .cyber-button-ghost:hover {
+            border-color: theme('colors.primary-container');
+            color: theme('colors.primary-container');
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.1);
+        }
+        /* Custom Scrollbar for sleekness */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: theme('colors.surface-variant'); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: theme('colors.outline'); }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-x-hidden min-h-screen">
+<!-- SideNavBar -->
+<nav class="hidden md:flex w-[260px] h-screen fixed left-0 top-0 overflow-y-auto border-r border-outline-variant bg-surface-container-lowest flex-col py-6 z-50">
+<div class="px-6 mb-8">
+<h1 class="font-display-lg text-headline-md text-primary drop-shadow-[0_0_8px_rgba(76,215,246,0.5)]">Personal Learning OS</h1>
+<p class="font-data-mono text-label-caps text-on-surface-variant mt-2 uppercase tracking-widest">Executive Workflow</p>
+</div>
+<div class="flex-1 space-y-1">
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="checklist">checklist</span>
+                Tasks
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="auto_stories">auto_stories</span>
+                Journal
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+                Knowledge Base
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="architecture">architecture</span>
+                Project Hub
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="timer">timer</span>
+                Focus Timer
+            </a>
+<!-- Active State -->
+<a class="text-primary font-bold border-l-2 border-primary bg-primary/5 flex items-center gap-3 px-6 py-3 scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+                Skills Graph
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+                GitHub Hub
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="code">code</span>
+                LeetCode
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+                Analytics
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="bug_report">bug_report</span>
+                Mistake Engine
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+                Search
+            </a>
+</div>
+<div class="mt-auto pt-4 border-t border-surface-variant px-6">
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Settings
+            </a>
+<div class="flex items-center gap-3 mt-4">
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden flex-shrink-0">
+<img alt="System Administrator" class="w-full h-full object-cover" data-alt="A futuristic, low-poly portrait avatar in monochrome with subtle neon blue highlights, set against a dark obsidian background, conveying an executive high-tech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzkjKLhdqHb3clUsumgDgDPortErf1aljdn11C9K-Pu7fA9SRISiIUjyubpCimgQhfZVpEU4By7Fg9GSl5_R_weO6E58tRdJnKLoVYGnlz9b1ymiN31JkeWNB5q9soFHWWjf6lxOrCaQsPfDtIsLJSDnnOoERjcMDPWqWtRt4FssnrHtY6KCwiqgSXMODiacbYRqf8y7clZ0kR5uLIB6E1g30S0rRtRiQvyRjTcbgkGo7C8yZOS_e6mg"/>
+</div>
+<span class="font-data-mono text-body-sm text-on-surface truncate">SysAdmin</span>
+</div>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 w-full md:w-[calc(100%-260px)] h-16 z-40 border-b border-outline-variant bg-surface/80 backdrop-blur-xl shadow-sm flex justify-between items-center px-6 gap-4">
+<div class="flex items-center gap-4">
+<!-- Mobile Menu Toggle -->
+<button class="md:hidden text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="font-display-lg text-headline-md text-primary hidden md:block">System Command</h2>
+</div>
+<div class="flex items-center gap-6">
+<!-- Global Search Indicator (Mock) -->
+<div class="hidden sm:flex items-center gap-2 bg-surface-container-low border border-surface-variant px-3 py-1.5 rounded-full text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">search</span>
+<span class="font-data-mono text-label-caps">CMD + K</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors p-2 rounded-md">
+<span class="material-symbols-outlined" data-icon="timer">timer</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors p-2 rounded-md">
+<span class="material-symbols-outlined" data-icon="backup">backup</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors p-2 rounded-md md:hidden">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+<div class="hidden md:flex items-center gap-2">
+<button class="cyber-button-ghost font-data-mono text-data-mono px-4 py-2 rounded-DEFAULT text-on-surface-variant">
+                    Import
+                </button>
+<button class="bg-primary-container text-on-primary-container font-data-mono text-data-mono font-bold px-4 py-2 rounded-DEFAULT hover:opacity-90 transition-opacity drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]">
+                    New Note
+                </button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-[88px] pb-[24px] px-[16px] md:px-[24px] md:ml-[260px] min-h-screen flex flex-col gap-gutter">
+<!-- Header Section -->
+<header class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-4">
+<div>
+<h2 class="font-display-lg text-headline-md text-on-surface tracking-tight">Skills &amp; Universal Evidence Graph</h2>
+<p class="font-data-mono text-body-sm text-on-surface-variant mt-1">Domain mastery mapping and credential verification.</p>
+</div>
+<div class="flex gap-2">
+<button class="glass-panel font-data-mono text-data-mono px-3 py-1.5 rounded-DEFAULT text-on-surface-variant hover:text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">filter_list</span> Filter
+                </button>
+<button class="glass-panel font-data-mono text-data-mono px-3 py-1.5 rounded-DEFAULT text-primary border-primary/30 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">grid_view</span> Grid
+                </button>
+</div>
+</header>
+<!-- Bento Grid / Skills Mastery -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+<!-- Skill Card: Computer Vision -->
+<article class="glass-panel skill-card rounded-lg p-5 flex flex-col relative overflow-hidden group">
+<!-- Decorative Glow -->
+<div class="absolute -top-10 -right-10 w-24 h-24 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/20 transition-all"></div>
+<header class="flex justify-between items-start mb-4 relative z-10">
+<div>
+<h3 class="font-display-lg text-body-md font-bold text-on-surface">Computer Vision</h3>
+<span class="font-data-mono text-label-caps text-on-surface-variant">AI / ML</span>
+</div>
+<span class="material-symbols-outlined text-primary" data-weight="fill">visibility</span>
+</header>
+<div class="mb-6 relative z-10">
+<div class="flex gap-1 mb-1">
+<!-- 5-dot rating: 4/5 -->
+<div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_5px_theme('colors.primary')]"></div>
+<div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_5px_theme('colors.primary')]"></div>
+<div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_5px_theme('colors.primary')]"></div>
+<div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_5px_theme('colors.primary')]"></div>
+<div class="w-3 h-3 rounded-full bg-surface-variant border border-outline-variant"></div>
+</div>
+<p class="font-data-mono text-label-caps text-on-surface-variant">L4: Advanced Implementation</p>
+</div>
+<div class="mt-auto relative z-10 pt-4 border-t border-surface-variant">
+<button class="w-full cyber-button-ghost font-data-mono text-data-mono px-3 py-2 rounded text-on-surface-variant flex items-center justify-center gap-2 group-hover:text-primary">
+<span class="material-symbols-outlined text-[16px]">account_tree</span>
+                        Inspect Evidence Graph
+                    </button>
+</div>
+</article>
+<!-- Skill Card: PyTorch -->
+<article class="glass-panel skill-card rounded-lg p-5 flex flex-col relative overflow-hidden group">
+<div class="absolute -top-10 -right-10 w-24 h-24 bg-tertiary/10 rounded-full blur-xl group-hover:bg-tertiary/20 transition-all"></div>
+<header class="flex justify-between items-start mb-4 relative z-10">
+<div>
+<h3 class="font-display-lg text-body-md font-bold text-on-surface">PyTorch</h3>
+<span class="font-data-mono text-label-caps text-on-surface-variant">Frameworks</span>
+</div>
+<span class="material-symbols-outlined text-tertiary" data-weight="fill">extension</span>
+</header>
+<div class="mb-6 relative z-10">
+<div class="flex gap-1 mb-1">
+<!-- 5-dot rating: 5/5 -->
+<div class="w-3 h-3 rounded-full bg-tertiary shadow-[0_0_5px_theme('colors.tertiary')]"></div>
+<div class="w-3 h-3 rounded-full bg-tertiary shadow-[0_0_5px_theme('colors.tertiary')]"></div>
+<div class="w-3 h-3 rounded-full bg-tertiary shadow-[0_0_5px_theme('colors.tertiary')]"></div>
+<div class="w-3 h-3 rounded-full bg-tertiary shadow-[0_0_5px_theme('colors.tertiary')]"></div>
+<div class="w-3 h-3 rounded-full bg-tertiary shadow-[0_0_5px_theme('colors.tertiary')]"></div>
+</div>
+<p class="font-data-mono text-label-caps text-on-surface-variant">L5: Expert / Architect</p>
+</div>
+<div class="mt-auto relative z-10 pt-4 border-t border-surface-variant">
+<button class="w-full cyber-button-ghost font-data-mono text-data-mono px-3 py-2 rounded text-on-surface-variant flex items-center justify-center gap-2 group-hover:text-primary">
+<span class="material-symbols-outlined text-[16px]">account_tree</span>
+                        Inspect Evidence Graph
+                    </button>
+</div>
+</article>
+<!-- Skill Card: Distributed Systems -->
+<article class="glass-panel skill-card rounded-lg p-5 flex flex-col relative overflow-hidden group">
+<div class="absolute -top-10 -right-10 w-24 h-24 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/20 transition-all"></div>
+<header class="flex justify-between items-start mb-4 relative z-10">
+<div>
+<h3 class="font-display-lg text-body-md font-bold text-on-surface">Distributed Systems</h3>
+<span class="font-data-mono text-label-caps text-on-surface-variant">Backend Arch</span>
+</div>
+<span class="material-symbols-outlined text-primary" data-weight="fill">lan</span>
+</header>
+<div class="mb-6 relative z-10">
+<div class="flex gap-1 mb-1">
+<!-- 5-dot rating: 3/5 -->
+<div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_5px_theme('colors.primary')]"></div>
+<div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_5px_theme('colors.primary')]"></div>
+<div class="w-3 h-3 rounded-full bg-primary shadow-[0_0_5px_theme('colors.primary')]"></div>
+<div class="w-3 h-3 rounded-full bg-surface-variant border border-outline-variant"></div>
+<div class="w-3 h-3 rounded-full bg-surface-variant border border-outline-variant"></div>
+</div>
+<p class="font-data-mono text-label-caps text-on-surface-variant">L3: Intermediate Application</p>
+</div>
+<div class="mt-auto relative z-10 pt-4 border-t border-surface-variant">
+<button class="w-full cyber-button-ghost font-data-mono text-data-mono px-3 py-2 rounded text-on-surface-variant flex items-center justify-center gap-2 group-hover:text-primary">
+<span class="material-symbols-outlined text-[16px]">account_tree</span>
+                        Inspect Evidence Graph
+                    </button>
+</div>
+</article>
+<!-- Skill Card: Data Engineering -->
+<article class="glass-panel skill-card rounded-lg p-5 flex flex-col relative overflow-hidden group border-surface-variant opacity-80 hover:opacity-100">
+<header class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-display-lg text-body-md font-bold text-on-surface">Data Engineering</h3>
+<span class="font-data-mono text-label-caps text-on-surface-variant">Infrastructure</span>
+</div>
+<span class="material-symbols-outlined text-outline" data-weight="fill">database</span>
+</header>
+<div class="mb-6">
+<div class="flex gap-1 mb-1">
+<!-- 5-dot rating: 2/5 -->
+<div class="w-3 h-3 rounded-full bg-outline shadow-[0_0_5px_theme('colors.outline')]"></div>
+<div class="w-3 h-3 rounded-full bg-outline shadow-[0_0_5px_theme('colors.outline')]"></div>
+<div class="w-3 h-3 rounded-full bg-surface-variant border border-outline-variant"></div>
+<div class="w-3 h-3 rounded-full bg-surface-variant border border-outline-variant"></div>
+<div class="w-3 h-3 rounded-full bg-surface-variant border border-outline-variant"></div>
+</div>
+<p class="font-data-mono text-label-caps text-on-surface-variant">L2: Basic Familiarity</p>
+</div>
+<div class="mt-auto pt-4 border-t border-surface-variant">
+<button class="w-full cyber-button-ghost font-data-mono text-data-mono px-3 py-2 rounded text-on-surface-variant flex items-center justify-center gap-2 group-hover:text-primary">
+<span class="material-symbols-outlined text-[16px]">account_tree</span>
+                        Inspect Evidence Graph
+                    </button>
+</div>
+</article>
+</div>
+</main>
+</body></html>

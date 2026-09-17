@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Analytics - Personal Learning OS</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=JetBrains+Mono:wght@500;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#2f2ebe",
+                        "outline": "#869397",
+                        "on-tertiary-fixed": "#2a1700",
+                        "primary": "#4cd7f6",
+                        "outline-variant": "#3d494c",
+                        "primary-fixed-dim": "#4cd7f6",
+                        "tertiary-fixed": "#ffddb8",
+                        "surface-container-lowest": "#0b0e15",
+                        "secondary-fixed-dim": "#c0c1ff",
+                        "surface-container-low": "#181c23",
+                        "on-secondary": "#1000a9",
+                        "surface-container-high": "#272a32",
+                        "inverse-surface": "#e0e2ed",
+                        "surface-dim": "#10131b",
+                        "on-secondary-container": "#b0b2ff",
+                        "tertiary": "#ffb95f",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "secondary-container": "#3131c0",
+                        "on-surface": "#e0e2ed",
+                        "on-tertiary": "#472a00",
+                        "surface": "#10131b",
+                        "on-secondary-fixed": "#07006c",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#e79400",
+                        "on-background": "#e0e2ed",
+                        "error": "#ffb4ab",
+                        "surface-container-highest": "#32353d",
+                        "background": "#10131b",
+                        "on-tertiary-container": "#563400",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#e1e0ff",
+                        "on-surface-variant": "#bcc9cd",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "on-primary-fixed-variant": "#004e5c",
+                        "surface-variant": "#32353d",
+                        "on-primary-container": "#00424f",
+                        "primary-container": "#06b6d4",
+                        "inverse-primary": "#00687a",
+                        "primary-fixed": "#acedff",
+                        "secondary": "#c0c1ff",
+                        "on-error-container": "#ffdad6",
+                        "surface-tint": "#4cd7f6",
+                        "inverse-on-surface": "#2d3038",
+                        "on-primary-fixed": "#001f26",
+                        "surface-container": "#1c2027",
+                        "surface-bright": "#363941",
+                        "on-primary": "#003640"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-dense": "4px",
+                        "container-padding": "24px",
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "stack-compact": "8px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "data-mono": ["JetBrains Mono"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["JetBrains Mono"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "data-mono": ["13px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-sm": ["12px", { "lineHeight": "18px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "label-caps": ["10px", { "lineHeight": "12px", "letterSpacing": "0.1em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "22px", "letterSpacing": "0em", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<!-- Custom Chart.js for High-End Visuals -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+        /* Base Executive Dark Mode Styles */
+        body {
+            background-color: #070A11;
+            color: #e0e2ed;
+        }
+        
+        /* Glassmorphism & Tonal Layering */
+        .glass-panel {
+            background-color: #111726;
+            border: 1px solid #1E293B;
+            transition: all 0.3s ease;
+        }
+        
+        .glass-panel:hover {
+            border-color: #06B6D4;
+            box-shadow: 0px 0px 15px rgba(6, 182, 212, 0.15);
+        }
+
+        .glass-panel-floating {
+            background-color: rgba(17, 23, 38, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid #334155;
+        }
+        
+        /* Custom Scrollbar for dense lists */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0e15; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3d494c; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #869397; 
+        }
+
+        /* Micro-interactions */
+        .hover-glow:hover {
+            text-shadow: 0 0 8px rgba(76, 215, 246, 0.5);
+        }
+        
+        /* Heatmap Specific */
+        .heatmap-cell {
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.1);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface antialiased bg-background selection:bg-primary/30 selection:text-primary">
+<!-- TopNavBar (Shared Component) -->
+<header class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 z-40 border-b border-outline-variant bg-surface/80 backdrop-blur-xl shadow-sm flex justify-between items-center px-6 gap-4 hidden md:flex">
+<div class="flex items-center gap-4 flex-1">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors" data-icon="search">search</span>
+<input class="w-full bg-transparent border-none focus:ring-0 text-body-md text-on-surface placeholder:text-on-surface-variant font-body-md" placeholder="Search analytics..." type="text"/>
+</div>
+<div class="flex items-center gap-6">
+<!-- Icon Actions -->
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors p-2 rounded-DEFAULT group" title="timer">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="timer">timer</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors p-2 rounded-DEFAULT group" title="backup">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="backup">backup</span>
+</button>
+</div>
+<!-- Text Actions -->
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 text-on-surface border border-outline-variant rounded-DEFAULT font-data-mono text-data-mono hover:border-primary hover:text-primary hover:shadow-[0_0_15px_rgba(6,182,212,0.15)] transition-all">Import</button>
+<button class="px-4 py-2 bg-primary text-on-primary font-data-mono text-data-mono font-bold rounded-DEFAULT hover:bg-primary-container transition-colors shadow-[0_0_10px_rgba(76,215,246,0.3)]">New Note</button>
+</div>
+<!-- Profile -->
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant overflow-hidden cursor-pointer hover:border-primary transition-colors">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A stylized, high-tech avatar for a system administrator, set against a dark background with subtle neon cyan accents, conveying a sense of executive control and digital mastery within a minimalist UI context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBd5VQe0yhjlmvc9bsMbbN9A0PSP3f_f9FhOqwR21MK8Q5Xw-nIgvV__oVJHC8cu2COhUWJM8mHK3t7TvhkEuR2MHjnGXWUvDmYdCY7VQSZHlyTuIRSG5Kj-lzb2MMyc_foxpvBz1CTR2UiTEnJopstsQiPcIBevtVifQy3S37VnlT8y6wlpLqBz8FCdDRjNsDsJO_FXLdFdCilUnNzSMQQn-LHiEaDSs_uNx0tbdLoH39LEhwiqD30kg"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Shared Component) -->
+<nav class="w-[260px] h-screen fixed left-0 top-0 overflow-y-auto border-r border-outline-variant bg-surface-container-lowest hidden md:flex flex-col z-50">
+<!-- Header -->
+<div class="p-6 pb-8 border-b border-outline-variant/30">
+<h1 class="font-display-lg text-headline-md text-primary drop-shadow-[0_0_8px_rgba(76,215,246,0.5)] tracking-tight">Personal Learning OS</h1>
+<p class="font-data-mono text-label-caps text-on-surface-variant mt-2 uppercase tracking-widest">Executive Workflow</p>
+</div>
+<!-- Navigation Links -->
+<div class="flex flex-col h-full py-6 flex-1 gap-1">
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="checklist">checklist</span>
+<span>Tasks</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="auto_stories">auto_stories</span>
+<span>Journal</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="menu_book">menu_book</span>
+<span>Knowledge Base</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="architecture">architecture</span>
+<span>Project Hub</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="timer">timer</span>
+<span>Focus Timer</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="hub">hub</span>
+<span>Skills Graph</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="terminal">terminal</span>
+<span>GitHub Hub</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="code">code</span>
+<span>LeetCode</span>
+</a>
+<!-- ACTIVE TAB -->
+<a aria-current="page" class="text-primary font-bold border-l-2 border-primary bg-primary/5 font-body-md flex items-center gap-3 px-6 py-3 transition-transform scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="insights" data-weight="fill" style="font-variation-settings: 'FILL' 1;">insights</span>
+<span>Analytics</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="bug_report">bug_report</span>
+<span>Mistake Engine</span>
+</a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform" data-icon="search">search</span>
+<span>Search</span>
+</a>
+</div>
+<!-- Bottom Settings -->
+<div class="p-4 border-t border-outline-variant/30">
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-2 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 group rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined group-hover:rotate-90 transition-transform duration-300" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="md:ml-[260px] pt-16 min-h-screen p-container-padding flex flex-col gap-gutter">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-4">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight">Analytics Engine</h2>
+<p class="font-data-mono text-data-mono text-on-surface-variant mt-1">System Vitality &amp; Cognitive Load</p>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 glass-panel rounded-DEFAULT font-data-mono text-label-caps text-on-surface-variant hover:text-primary transition-colors">7D</button>
+<button class="px-3 py-1.5 bg-primary/10 border border-primary text-primary rounded-DEFAULT font-data-mono text-label-caps shadow-[0_0_10px_rgba(6,182,212,0.2)]">30D</button>
+<button class="px-3 py-1.5 glass-panel rounded-DEFAULT font-data-mono text-label-caps text-on-surface-variant hover:text-primary transition-colors">YTD</button>
+</div>
+</div>
+<!-- Top Stats Row (Bento Grid Style) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<div class="glass-panel p-4 rounded-lg flex flex-col justify-between h-[120px] relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-16 h-16 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/20 transition-colors"></div>
+<div class="flex justify-between items-start z-10">
+<span class="font-data-mono text-label-caps text-on-surface-variant uppercase tracking-widest">Total Focus</span>
+<span class="material-symbols-outlined text-primary text-sm" data-icon="timer">timer</span>
+</div>
+<div class="z-10">
+<div class="font-display-lg text-headline-md text-on-surface">142<span class="text-on-surface-variant text-body-sm ml-1 font-body-sm">hrs</span></div>
+<div class="font-data-mono text-label-caps text-emerald-400 mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]" data-icon="trending_up">trending_up</span> +12% vs last mo
+                    </div>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-lg flex flex-col justify-between h-[120px] relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-16 h-16 bg-tertiary/10 rounded-full blur-xl group-hover:bg-tertiary/20 transition-colors"></div>
+<div class="flex justify-between items-start z-10">
+<span class="font-data-mono text-label-caps text-on-surface-variant uppercase tracking-widest">Knowledge Nodes</span>
+<span class="material-symbols-outlined text-tertiary text-sm" data-icon="hub">hub</span>
+</div>
+<div class="z-10">
+<div class="font-display-lg text-headline-md text-on-surface">843</div>
+<div class="font-data-mono text-label-caps text-emerald-400 mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]" data-icon="trending_up">trending_up</span> +54 nodes
+                    </div>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-lg flex flex-col justify-between h-[120px] relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-16 h-16 bg-secondary/10 rounded-full blur-xl group-hover:bg-secondary/20 transition-colors"></div>
+<div class="flex justify-between items-start z-10">
+<span class="font-data-mono text-label-caps text-on-surface-variant uppercase tracking-widest">Deep Work Score</span>
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="psychology">psychology</span>
+</div>
+<div class="z-10 flex items-end gap-3">
+<div class="font-display-lg text-headline-md text-on-surface">8.4<span class="text-on-surface-variant text-body-sm font-body-sm">/10</span></div>
+<!-- Micro Sparkline -->
+<div class="w-16 h-6 flex items-end gap-px mb-1 opacity-70">
+<div class="w-full bg-secondary/20 h-[30%]"></div>
+<div class="w-full bg-secondary/40 h-[50%]"></div>
+<div class="w-full bg-secondary/60 h-[40%]"></div>
+<div class="w-full bg-secondary/80 h-[70%]"></div>
+<div class="w-full bg-secondary h-[90%]"></div>
+</div>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-lg flex flex-col justify-between h-[120px] relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-16 h-16 bg-error/10 rounded-full blur-xl group-hover:bg-error/20 transition-colors"></div>
+<div class="flex justify-between items-start z-10">
+<span class="font-data-mono text-label-caps text-on-surface-variant uppercase tracking-widest">Context Switches</span>
+<span class="material-symbols-outlined text-error text-sm" data-icon="swap_horiz">swap_horiz</span>
+</div>
+<div class="z-10">
+<div class="font-display-lg text-headline-md text-on-surface">12<span class="text-on-surface-variant text-body-sm ml-1 font-body-sm">avg/day</span></div>
+<div class="font-data-mono text-label-caps text-error mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]" data-icon="trending_up">trending_up</span> Needs attention
+                    </div>
+</div>
+</div>
+</div>
+<!-- Main Charts Area (Asymmetric Grid) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter h-[400px]">
+<!-- Primary Area Chart: Focus Trend -->
+<div class="glass-panel rounded-lg p-6 lg:col-span-2 flex flex-col">
+<div class="flex justify-between items-center mb-4">
+<div>
+<h3 class="font-headline-md text-body-md font-bold text-on-surface">Cognitive Output (30 Days)</h3>
+<p class="font-data-mono text-label-caps text-on-surface-variant mt-1">Measured in Focus Hours</p>
+</div>
+<span class="material-symbols-outlined text-primary hover-glow cursor-help" data-icon="info">info</span>
+</div>
+<div class="flex-1 relative w-full h-full">
+<canvas id="focusTrendChart"></canvas>
+</div>
+</div>
+<!-- Secondary Bar Chart: Time Allocation -->
+<div class="glass-panel rounded-lg p-6 flex flex-col">
+<div class="mb-4">
+<h3 class="font-headline-md text-body-md font-bold text-on-surface">Resource Allocation</h3>
+<p class="font-data-mono text-label-caps text-on-surface-variant mt-1">Domain Distribution</p>
+</div>
+<div class="flex-1 relative w-full h-full flex items-center justify-center">
+<canvas id="allocationChart"></canvas>
+</div>
+<!-- Custom Legend -->
+<div class="mt-4 flex flex-col gap-2">
+<div class="flex justify-between items-center font-data-mono text-data-mono text-on-surface-variant">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_5px_rgba(76,215,246,0.8)]"></div>
+<span>Coding</span>
+</div>
+<span class="text-on-surface">65%</span>
+</div>
+<div class="flex justify-between items-center font-data-mono text-data-mono text-on-surface-variant">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_5px_rgba(192,193,255,0.8)]"></div>
+<span>Research</span>
+</div>
+<span class="text-on-surface">25%</span>
+</div>
+<div class="flex justify-between items-center font-data-mono text-data-mono text-on-surface-variant">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary shadow-[0_0_5px_rgba(255,185,95,0.8)]"></div>
+<span>Projects</span>
+</div>
+<span class="text-on-surface">10%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Peak Performance Heatmap -->
+<div class="glass-panel rounded-lg p-6 mb-8">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="font-headline-md text-body-md font-bold text-on-surface">Temporal Vitality Grid</h3>
+<p class="font-data-mono text-label-caps text-on-surface-variant mt-1">Hourly Productivity Heatmap (Last 30 Days)</p>
+</div>
+</div>
+<div class="overflow-x-auto">
+<div class="min-w-[800px]">
+<!-- X-Axis Labels (Hours) -->
+<div class="grid grid-cols-[auto_repeat(24,1fr)] gap-1 mb-2">
+<div class="w-12"></div> <!-- Spacer for Y-axis -->
+<!-- Generating simple hour labels -->
+<script>
+                            for(let i=0; i<24; i+=2) {
+                                document.write(`<div class="col-span-2 text-center font-data-mono text-label-caps text-on-surface-variant">${i}:00</div>`);
+                            }
+                        </script>
+</div>
+<!-- Grid Content -->
+<div class="flex flex-col gap-1" id="heatmap-container">
+<!-- Populated by JS below -->
+</div>
+</div>
+</div>
+<!-- Heatmap Legend -->
+<div class="flex justify-end items-center mt-6 gap-2 font-data-mono text-label-caps text-on-surface-variant">
+<span>Low</span>
+<div class="flex gap-1">
+<div class="w-3 h-3 rounded-sm bg-surface-container-high border border-outline-variant/30"></div>
+<div class="w-3 h-3 rounded-sm bg-primary/20 border border-primary/20"></div>
+<div class="w-3 h-3 rounded-sm bg-primary/40 border border-primary/40"></div>
+<div class="w-3 h-3 rounded-sm bg-primary/70 border border-primary/60"></div>
+<div class="w-3 h-3 rounded-sm bg-primary shadow-[0_0_5px_rgba(76,215,246,0.6)]"></div>
+</div>
+<span>High Output</span>
+</div>
+</div>
+</main>
+<script>
+        // Set chart defaults for executive dark mode theme
+        Chart.defaults.color = '#869397'; // text-outline
+        Chart.defaults.font.family = '"JetBrains Mono", monospace';
+        Chart.defaults.scale.grid.color = '#1E293B'; // Subtle grid lines
+        Chart.defaults.scale.grid.borderColor = 'transparent'; // Remove axis border line
+        
+        // 1. Primary Area Chart (Focus Trend)
+        const focusCtx = document.getElementById('focusTrendChart').getContext('2d');
+        
+        // Create glowing gradient
+        let gradient = focusCtx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(6, 182, 212, 0.5)'); // Cyan top
+        gradient.addColorStop(1, 'rgba(6, 182, 212, 0.0)'); // Transparent bottom
+
+        const focusLabels = Array.from({length: 30}, (_, i) => `Day ${i+1}`);
+        // Generate pseudo-random data with an upward trend
+        let baseVal = 3;
+        const focusData = focusLabels.map(() => {
+            baseVal = baseVal + (Math.random() * 2 - 0.8);
+            if(baseVal < 1) baseVal = 1;
+            if(baseVal > 8) baseVal = 8;
+            return baseVal.toFixed(1);
+        });
+
+        new Chart(focusCtx, {
+            type: 'line',
+            data: {
+                labels: focusLabels,
+                datasets: [{
+                    label: 'Focus Hours',
+                    data: focusData,
+                    borderColor: '#4cd7f6', // Cyber Cyan
+                    borderWidth: 2,
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.4, // Smooth curves
+                    pointBackgroundColor: '#070A11',
+                    pointBorderColor: '#4cd7f6',
+                    pointBorderWidth: 2,
+                    pointRadius: 0, // Hide points normally
+                    pointHoverRadius: 6, // Show on hover with glow
+                    pointHoverBackgroundColor: '#4cd7f6',
+                    pointHoverBorderColor: '#fff',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 23, 38, 0.9)', // surface 1
+                        titleColor: '#e0e2ed',
+                        bodyColor: '#4cd7f6',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false,
+                        titleFont: { family: '"Plus Jakarta Sans", sans-serif', size: 14 },
+                        bodyFont: { family: '"JetBrains Mono", monospace', size: 16, weight: 'bold' },
+                        callbacks: {
+                            label: function(context) { return context.parsed.y + ' hrs'; }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { maxTicksLimit: 7, font: {size: 10} },
+                        grid: { display: false } // No vertical grid lines
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 10,
+                        ticks: { stepSize: 2, font: {size: 10} }
+                    }
+                },
+                interaction: { mode: 'index', intersect: false }
+            }
+        });
+
+        // 2. Secondary Bar Chart (Resource Allocation)
+        const allocCtx = document.getElementById('allocationChart').getContext('2d');
+        new Chart(allocCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Coding', 'Research', 'Projects'],
+                datasets: [{
+                    data: [65, 25, 10],
+                    backgroundColor: [
+                        '#4cd7f6', // Primary
+                        '#c0c1ff', // Secondary
+                        '#ffb95f'  // Tertiary
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%', // Thin ring
+                plugins: {
+                    legend: { display: false }, // Using custom HTML legend
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 23, 38, 0.9)',
+                        titleColor: '#e0e2ed',
+                        bodyColor: '#e0e2ed',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        padding: 10
+                    }
+                }
+            }
+        });
+
+        // 3. Generate Heatmap Grid
+        const heatmapContainer = document.getElementById('heatmap-container');
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        
+        // Intensity mapping to bg colors
+        const getIntensityClass = (val) => {
+            if (val === 0) return 'bg-surface-container-high border-outline-variant/30';
+            if (val < 3) return 'bg-primary/20 border-primary/20 text-transparent';
+            if (val < 6) return 'bg-primary/40 border-primary/40 text-transparent';
+            if (val < 8) return 'bg-primary/70 border-primary/60 text-transparent';
+            return 'bg-primary border-primary shadow-[0_0_5px_rgba(76,215,246,0.5)] text-transparent';
+        };
+
+        days.forEach(day => {
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-[auto_repeat(24,1fr)] gap-1 items-center';
+            
+            // Day label
+            const label = document.createElement('div');
+            label.className = 'w-12 font-data-mono text-label-caps text-on-surface-variant text-right pr-2';
+            label.textContent = day;
+            row.appendChild(label);
+            
+            // 24 Hour cells
+            for(let h=0; h<24; h++) {
+                const cell = document.createElement('div');
+                
+                // Simulate higher activity during certain hours (e.g., 9am-12pm, 8pm-11pm)
+                let intensity = 0;
+                if(day !== 'Sat' && day !== 'Sun') {
+                     if(h >= 9 && h <= 12) intensity = Math.floor(Math.random() * 8) + 2;
+                     else if (h >= 13 && h <= 17) intensity = Math.floor(Math.random() * 5) + 1;
+                     else if (h >= 20 && h <= 23) intensity = Math.floor(Math.random() * 10);
+                     else intensity = Math.random() > 0.8 ? 1 : 0;
+                } else {
+                     if(h >= 10 && h <= 16) intensity = Math.floor(Math.random() * 6);
+                     else intensity = 0;
+                }
+
+                const colorClass = getIntensityClass(intensity);
+                
+                cell.className = `h-6 rounded-[2px] border ${colorClass} heatmap-cell cursor-crosshair`;
+                cell.title = `${day} ${h}:00 - Intensity: ${intensity}`;
+                row.appendChild(cell);
+            }
+            heatmapContainer.appendChild(row);
+        });
+
+    </script>
+</body></html>

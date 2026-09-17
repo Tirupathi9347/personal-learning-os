@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LeetCode Progress Hub - Personal Learning OS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=JetBrains+Mono:wght@500;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-secondary-fixed-variant": "#2f2ebe",
+                      "outline": "#869397",
+                      "on-tertiary-fixed": "#2a1700",
+                      "primary": "#4cd7f6",
+                      "outline-variant": "#3d494c",
+                      "primary-fixed-dim": "#4cd7f6",
+                      "tertiary-fixed": "#ffddb8",
+                      "surface-container-lowest": "#0b0e15",
+                      "secondary-fixed-dim": "#c0c1ff",
+                      "surface-container-low": "#181c23",
+                      "on-secondary": "#1000a9",
+                      "surface-container-high": "#272a32",
+                      "inverse-surface": "#e0e2ed",
+                      "surface-dim": "#10131b",
+                      "on-secondary-container": "#b0b2ff",
+                      "tertiary": "#ffb95f",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "secondary-container": "#3131c0",
+                      "on-surface": "#e0e2ed",
+                      "on-tertiary": "#472a00",
+                      "surface": "#10131b",
+                      "on-secondary-fixed": "#07006c",
+                      "error-container": "#93000a",
+                      "tertiary-container": "#e79400",
+                      "on-background": "#e0e2ed",
+                      "error": "#ffb4ab",
+                      "surface-container-highest": "#32353d",
+                      "background": "#10131b",
+                      "on-tertiary-container": "#563400",
+                      "on-error": "#690005",
+                      "secondary-fixed": "#e1e0ff",
+                      "on-surface-variant": "#bcc9cd",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "on-primary-fixed-variant": "#004e5c",
+                      "surface-variant": "#32353d",
+                      "on-primary-container": "#00424f",
+                      "primary-container": "#06b6d4",
+                      "inverse-primary": "#00687a",
+                      "primary-fixed": "#acedff",
+                      "secondary": "#c0c1ff",
+                      "on-error-container": "#ffdad6",
+                      "surface-tint": "#4cd7f6",
+                      "inverse-on-surface": "#2d3038",
+                      "on-primary-fixed": "#001f26",
+                      "surface-container": "#1c2027",
+                      "surface-bright": "#363941",
+                      "on-primary": "#003640"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-dense": "4px",
+                      "container-padding": "24px",
+                      "gutter": "16px",
+                      "unit": "4px",
+                      "stack-compact": "8px"
+              },
+              "fontFamily": {
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "data-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "headline-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "label-caps": [
+                              "JetBrains Mono"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "data-mono": [
+                              "13px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "18px",
+                                      "letterSpacing": "0em",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-caps": [
+                              "10px",
+                              {
+                                      "lineHeight": "12px",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "22px",
+                                      "letterSpacing": "0em",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        /* Glassmorphism & Animations */
+        .glass-card {
+            background: rgba(17, 23, 38, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid #1E293B;
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            border-color: #06B6D4;
+            box-shadow: 0px 0px 15px rgba(6, 182, 212, 0.15);
+        }
+        .text-glow-primary {
+            text-shadow: 0 0 8px rgba(76, 215, 246, 0.5);
+        }
+        
+        /* Custom Scrollbar for dense lists */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #070A11;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1E293B;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="bg-[#070A11] text-on-surface font-body-md min-h-screen overflow-hidden flex selection:bg-primary-container selection:text-on-primary-container">
+<!-- Background Atmospheric Effect -->
+<div class="fixed inset-0 pointer-events-none z-0">
+<div class="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.03)_0%,transparent_70%)] blur-[100px]"></div>
+<div class="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-[radial-gradient(circle,rgba(255,185,95,0.02)_0%,transparent_70%)] blur-[100px]"></div>
+</div>
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-full py-6 w-[260px] h-screen fixed left-0 top-0 overflow-y-auto border-r border-outline-variant bg-surface-container-lowest z-30">
+<div class="px-6 mb-8">
+<h1 class="font-display-lg text-headline-md text-primary drop-shadow-[0_0_8px_rgba(76,215,246,0.5)]">Personal Learning OS</h1>
+<p class="font-data-mono text-data-mono text-on-surface-variant mt-1 tracking-wider uppercase text-[10px]">Executive Workflow</p>
+</div>
+<div class="flex-1 overflow-y-auto w-full">
+<ul class="flex flex-col w-full">
+<!-- Dashboard -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span>Dashboard</span>
+</a>
+</li>
+<!-- Tasks -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">checklist</span>
+<span>Tasks</span>
+</a>
+</li>
+<!-- Journal -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">auto_stories</span>
+<span>Journal</span>
+</a>
+</li>
+<!-- Knowledge Base -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+<span>Knowledge Base</span>
+</a>
+</li>
+<!-- Project Hub -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">architecture</span>
+<span>Project Hub</span>
+</a>
+</li>
+<!-- Focus Timer -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">timer</span>
+<span>Focus Timer</span>
+</a>
+</li>
+<!-- Skills Graph -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">hub</span>
+<span>Skills Graph</span>
+</a>
+</li>
+<!-- GitHub Hub -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
+<span>GitHub Hub</span>
+</a>
+</li>
+<!-- LeetCode (Active) -->
+<li>
+<a class="w-full text-primary font-bold border-l-2 border-primary bg-primary/5 flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#" style="transform: scale(0.95); transform-origin: left;">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">code</span>
+<span>LeetCode</span>
+</a>
+</li>
+<!-- Analytics -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">insights</span>
+<span>Analytics</span>
+</a>
+</li>
+<!-- Mistake Engine -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">bug_report</span>
+<span>Mistake Engine</span>
+</a>
+</li>
+<!-- Search -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[20px]">search</span>
+<span>Search</span>
+</a>
+</li>
+<!-- Settings -->
+<li>
+<a class="w-full text-on-surface-variant font-body-md flex items-center gap-3 px-6 py-3 hover:text-primary hover:bg-primary/10 transition-all duration-200 mt-auto" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span>Settings</span>
+</a>
+</li>
+</ul>
+</div>
+<div class="px-6 mt-auto pt-6 border-t border-outline-variant/30 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A detailed headshot avatar of a system administrator in a futuristic, dark-mode command center. The lighting is moody with soft cyber cyan reflections on the face. High-end sci-fi interface elements faintly visible in the bokeh background. Professional yet high-tech mood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHwZisks9TPpSPRqPIFtnMeVEBc0I6sqd98mWlabzLZyIaHJbhu1NtPJd9i45ZoDVfLW-SPqODFxT-IWHXNLiV_JAPjEhIsIPG_XajahP_MXQHePhDcZxzPZpz77Hq21ZoqXqsWfMFZokCRtT_9P2H61HpAo1TJSNOE-DcJI9CsNreuNvXOjiClG3zT1Urv6zdGvYgHi9m6RbVNMVojvaRk4At7jeK4S-o3UtoKMcDzryWfFjk-sXWYw"/>
+</div>
+<div class="flex flex-col">
+<span class="font-data-mono text-[11px] text-on-surface">SYS_ADMIN</span>
+<span class="font-body-sm text-[10px] text-on-surface-variant">System Administrator</span>
+</div>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 z-40 bg-surface/80 backdrop-blur-xl flex justify-between items-center px-6 gap-4 border-b border-outline-variant/50 shadow-sm">
+<!-- Search -->
+<div class="flex items-center bg-[#090D16] border border-outline-variant rounded px-3 py-1.5 w-64 focus-within:border-primary-container focus-within:shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-all">
+<span class="material-symbols-outlined text-on-surface-variant text-[16px] mr-2">search</span>
+<input class="bg-transparent border-none text-data-mono font-data-mono text-on-surface placeholder:text-on-surface-variant/50 focus:ring-0 w-full p-0 h-5" placeholder="Command..." type="text"/>
+<span class="font-data-mono text-[10px] text-on-surface-variant/50 bg-surface-container-highest px-1 rounded ml-2">⌘K</span>
+</div>
+<div class="font-display-lg text-headline-md text-primary hidden">System Command</div>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 mr-4 border-r border-outline-variant/50 pr-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[20px]">timer</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[20px]">backup</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+</button>
+</div>
+<button class="bg-transparent border border-outline-variant text-on-surface font-data-mono text-data-mono px-3 py-1.5 rounded hover:border-primary hover:text-primary transition-all shadow-[0_0_0_rgba(6,182,212,0)] hover:shadow-[0_0_10px_rgba(6,182,212,0.15)] flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">download</span>
+                Import
+            </button>
+<button class="bg-primary-container text-[#003640] font-data-mono text-data-mono font-bold px-3 py-1.5 rounded hover:bg-primary-fixed transition-all flex items-center gap-2 shadow-[0_0_10px_rgba(6,182,212,0.2)]">
+<span class="material-symbols-outlined text-[14px]">add</span>
+                New Note
+            </button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[260px] mt-16 p-container-padding w-[calc(100%-260px)] h-[calc(100vh-64px)] overflow-y-auto relative z-10">
+<!-- Header Section -->
+<header class="mb-8 flex flex-col gap-2">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary/10 border border-primary/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[20px]">code</span>
+</div>
+<h2 class="font-display-lg text-[32px] font-bold text-on-surface text-glow-primary tracking-tight">LeetCode Progress Hub</h2>
+</div>
+<p class="font-data-mono text-data-mono text-on-surface-variant">ALGORITHMIC MASTERY &amp; PATTERN RECOGNITION TRACKER</p>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-gutter mb-gutter">
+<!-- Overall Progress (Spans 8) -->
+<div class="col-span-12 lg:col-span-8 glass-card rounded-xl p-6 flex flex-col gap-4">
+<div class="flex justify-between items-end mb-2">
+<div>
+<h3 class="font-headline-md text-[18px] text-on-surface mb-1">Global Solve Rate</h3>
+<p class="font-data-mono text-[12px] text-on-surface-variant">TOTAL SOLVED: <span class="text-primary font-bold">412</span> / 3000+</p>
+</div>
+<div class="font-data-mono text-[24px] text-primary">
+                        13.7%
+                    </div>
+</div>
+<!-- Stacked Progress Bar -->
+<div class="w-full h-4 bg-[#090D16] rounded-full overflow-hidden flex border border-outline-variant">
+<!-- Easy (Green) -->
+<div class="h-full bg-[#10b981] relative" style="width: 45%;">
+<div class="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)] w-[200%] animate-[shimmer_2s_infinite]"></div>
+</div>
+<!-- Medium (Amber) -->
+<div class="h-full bg-tertiary-container relative" style="width: 40%;"></div>
+<!-- Hard (Red) -->
+<div class="h-full bg-error-container relative" style="width: 15%;"></div>
+</div>
+<!-- Legend -->
+<div class="flex gap-6 mt-2 font-data-mono text-[11px]">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-[#10b981]"></div>
+<span class="text-on-surface-variant">EASY: <span class="text-on-surface">185</span></span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary-container"></div>
+<span class="text-on-surface-variant">MEDIUM: <span class="text-on-surface">165</span></span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-error-container"></div>
+<span class="text-on-surface-variant">HARD: <span class="text-on-surface">62</span></span>
+</div>
+</div>
+</div>
+<!-- Heatmap/Streak (Spans 4) -->
+<div class="col-span-12 lg:col-span-4 glass-card rounded-xl p-6 flex flex-col justify-between">
+<div>
+<h3 class="font-headline-md text-[18px] text-on-surface mb-1">Consistency</h3>
+<p class="font-data-mono text-[12px] text-on-surface-variant">CURRENT STREAK: <span class="text-[#10b981] font-bold">14 DAYS</span></p>
+</div>
+<div class="grid grid-cols-7 gap-1 mt-4">
+<!-- Abstract Heatmap representation -->
+<script>
+                        for(let i=0; i<28; i++) {
+                            const intensity = Math.random();
+                            let bgClass = "bg-[#090D16]";
+                            if(intensity > 0.8) bgClass = "bg-[#10b981]";
+                            else if(intensity > 0.5) bgClass = "bg-[#10b981]/60";
+                            else if(intensity > 0.2) bgClass = "bg-[#10b981]/30";
+                            
+                            // force recent streak
+                            if(i > 13) bgClass = "bg-[#10b981]";
+                            if(i === 27) bgClass = "bg-[#10b981] border border-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.5)]";
+                            
+                            document.write(`<div class="aspect-square rounded-[2px] ${bgClass}"></div>`);
+                        }
+                    </script>
+</div>
+</div>
+</div>
+<!-- Mastery Badges Section -->
+<h3 class="font-headline-md text-[20px] text-on-surface mb-4 mt-8 flex items-center gap-2 border-b border-outline-variant/30 pb-2">
+<span class="material-symbols-outlined text-tertiary text-[20px]">military_tech</span>
+            Algorithmic Mastery
+        </h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter mb-gutter">
+<!-- Dynamic Programming -->
+<div class="glass-card rounded-lg p-5 flex flex-col gap-3 group">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded bg-[#090D16] border border-outline-variant flex items-center justify-center group-hover:border-tertiary transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-tertiary">account_tree</span>
+</div>
+<span class="font-data-mono text-[10px] text-tertiary bg-tertiary/10 px-2 py-1 rounded border border-tertiary/20">LVL 4</span>
+</div>
+<div>
+<h4 class="font-headline-md text-[16px] text-on-surface">Dynamic Programming</h4>
+<p class="font-data-mono text-[11px] text-on-surface-variant mt-1">45/100 SOLVED</p>
+</div>
+<div class="w-full h-1 bg-[#090D16] rounded-full mt-2">
+<div class="h-full bg-tertiary rounded-full shadow-[0_0_5px_rgba(255,185,95,0.5)]" style="width: 45%;"></div>
+</div>
+</div>
+<!-- Graphs -->
+<div class="glass-card rounded-lg p-5 flex flex-col gap-3 group">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded bg-[#090D16] border border-outline-variant flex items-center justify-center group-hover:border-tertiary transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-tertiary">hub</span>
+</div>
+<span class="font-data-mono text-[10px] text-tertiary bg-tertiary/10 px-2 py-1 rounded border border-tertiary/20">LVL 3</span>
+</div>
+<div>
+<h4 class="font-headline-md text-[16px] text-on-surface">Graphs &amp; BFS/DFS</h4>
+<p class="font-data-mono text-[11px] text-on-surface-variant mt-1">32/75 SOLVED</p>
+</div>
+<div class="w-full h-1 bg-[#090D16] rounded-full mt-2">
+<div class="h-full bg-tertiary rounded-full shadow-[0_0_5px_rgba(255,185,95,0.5)]" style="width: 42%;"></div>
+</div>
+</div>
+<!-- Trees -->
+<div class="glass-card rounded-lg p-5 flex flex-col gap-3 group">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded bg-[#090D16] border border-outline-variant flex items-center justify-center group-hover:border-tertiary transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-tertiary">park</span>
+</div>
+<span class="font-data-mono text-[10px] text-tertiary bg-tertiary/10 px-2 py-1 rounded border border-tertiary/20">LVL 5</span>
+</div>
+<div>
+<h4 class="font-headline-md text-[16px] text-on-surface">Trees &amp; BST</h4>
+<p class="font-data-mono text-[11px] text-on-surface-variant mt-1">68/80 SOLVED</p>
+</div>
+<div class="w-full h-1 bg-[#090D16] rounded-full mt-2">
+<div class="h-full bg-tertiary rounded-full shadow-[0_0_5px_rgba(255,185,95,0.5)]" style="width: 85%;"></div>
+</div>
+</div>
+<!-- Tries -->
+<div class="glass-card rounded-lg p-5 flex flex-col gap-3 group opacity-70 hover:opacity-100">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 rounded bg-[#090D16] border border-outline-variant flex items-center justify-center group-hover:border-tertiary transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-tertiary">format_list_bulleted</span>
+</div>
+<span class="font-data-mono text-[10px] text-on-surface-variant bg-surface-container-high px-2 py-1 rounded border border-outline-variant">LVL 1</span>
+</div>
+<div>
+<h4 class="font-headline-md text-[16px] text-on-surface">Tries</h4>
+<p class="font-data-mono text-[11px] text-on-surface-variant mt-1">5/25 SOLVED</p>
+</div>
+<div class="w-full h-1 bg-[#090D16] rounded-full mt-2">
+<div class="h-full bg-outline rounded-full" style="width: 20%;"></div>
+</div>
+</div>
+</div>
+<!-- Submissions Table Section -->
+<div class="glass-card rounded-xl overflow-hidden mt-8">
+<div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface/50">
+<h3 class="font-headline-md text-[18px] text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">history</span>
+                    Recent Submissions
+                </h3>
+<div class="flex items-center gap-2">
+<button class="bg-[#090D16] border border-outline-variant text-on-surface-variant font-data-mono text-[11px] px-3 py-1 rounded hover:text-primary hover:border-primary transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">filter_alt</span> FILTER
+                    </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="font-data-mono text-[11px] text-on-surface-variant border-b border-outline-variant/50 bg-[#090D16]/50">
+<th class="py-3 px-6 font-medium">STATUS</th>
+<th class="py-3 px-6 font-medium">PROBLEM NAME</th>
+<th class="py-3 px-6 font-medium">DIFFICULTY</th>
+<th class="py-3 px-6 font-medium">CATEGORY</th>
+<th class="py-3 px-6 font-medium text-right">ACTION</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-[14px]">
+<!-- Row 1 -->
+<tr class="border-b border-outline-variant/30 hover:bg-surface-container-high/50 transition-colors group">
+<td class="py-3 px-6">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 font-data-mono text-[10px]">
+<span class="material-symbols-outlined text-[12px]">check_circle</span> Accepted
+                                </span>
+</td>
+<td class="py-3 px-6 font-medium text-on-surface">1143. Longest Common Subsequence</td>
+<td class="py-3 px-6">
+<span class="text-tertiary-container font-data-mono text-[11px]">Medium</span>
+</td>
+<td class="py-3 px-6 text-on-surface-variant font-data-mono text-[11px]">Dynamic Programming</td>
+<td class="py-3 px-6 text-right">
+<a class="text-on-surface-variant group-hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">open_in_new</span>
+</a>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="border-b border-outline-variant/30 hover:bg-surface-container-high/50 transition-colors group">
+<td class="py-3 px-6">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 font-data-mono text-[10px]">
+<span class="material-symbols-outlined text-[12px]">check_circle</span> Accepted
+                                </span>
+</td>
+<td class="py-3 px-6 font-medium text-on-surface">207. Course Schedule</td>
+<td class="py-3 px-6">
+<span class="text-tertiary-container font-data-mono text-[11px]">Medium</span>
+</td>
+<td class="py-3 px-6 text-on-surface-variant font-data-mono text-[11px]">Graphs / DFS</td>
+<td class="py-3 px-6 text-right">
+<a class="text-on-surface-variant group-hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">open_in_new</span>
+</a>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="border-b border-outline-variant/30 hover:bg-surface-container-high/50 transition-colors group bg-error-container/5">
+<td class="py-3 px-6">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-error-container/20 text-error border border-error/30 font-data-mono text-[10px]">
+<span class="material-symbols-outlined text-[12px]">cancel</span> TLE
+                                </span>
+</td>
+<td class="py-3 px-6 font-medium text-on-surface">42. Trapping Rain Water</td>
+<td class="py-3 px-6">
+<span class="text-error font-data-mono text-[11px]">Hard</span>
+</td>
+<td class="py-3 px-6 text-on-surface-variant font-data-mono text-[11px]">Two Pointers</td>
+<td class="py-3 px-6 text-right">
+<a class="text-on-surface-variant group-hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">open_in_new</span>
+</a>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-high/50 transition-colors group">
+<td class="py-3 px-6">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 font-data-mono text-[10px]">
+<span class="material-symbols-outlined text-[12px]">check_circle</span> Accepted
+                                </span>
+</td>
+<td class="py-3 px-6 font-medium text-on-surface">208. Implement Trie (Prefix Tree)</td>
+<td class="py-3 px-6">
+<span class="text-tertiary-container font-data-mono text-[11px]">Medium</span>
+</td>
+<td class="py-3 px-6 text-on-surface-variant font-data-mono text-[11px]">Tries / Design</td>
+<td class="py-3 px-6 text-right">
+<a class="text-on-surface-variant group-hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">open_in_new</span>
+</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-3 border-t border-outline-variant/30 flex justify-center">
+<button class="text-on-surface-variant font-data-mono text-[11px] hover:text-primary transition-colors">VIEW FULL HISTORY</button>
+</div>
+</div>
+<!-- Bottom padding for scroll -->
+<div class="h-12"></div>
+</main>
+<style>
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(50%); }
+        }
+    </style>
+</body></html>

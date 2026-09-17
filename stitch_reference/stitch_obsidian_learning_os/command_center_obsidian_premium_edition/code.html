@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Personal Learning OS - Command Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=JetBrains+Mono:wght@500;700&amp;family=Inter:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-secondary-fixed-variant": "#2f2ebe",
+                      "outline": "#869397",
+                      "on-tertiary-fixed": "#2a1700",
+                      "primary": "#4cd7f6",
+                      "outline-variant": "#3d494c",
+                      "primary-fixed-dim": "#4cd7f6",
+                      "tertiary-fixed": "#ffddb8",
+                      "surface-container-lowest": "#0b0e15",
+                      "secondary-fixed-dim": "#c0c1ff",
+                      "surface-container-low": "#181c23",
+                      "on-secondary": "#1000a9",
+                      "surface-container-high": "#272a32",
+                      "inverse-surface": "#e0e2ed",
+                      "surface-dim": "#10131b",
+                      "on-secondary-container": "#b0b2ff",
+                      "tertiary": "#ffb95f",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "secondary-container": "#3131c0",
+                      "on-surface": "#e0e2ed",
+                      "on-tertiary": "#472a00",
+                      "surface": "#10131b",
+                      "on-secondary-fixed": "#07006c",
+                      "error-container": "#93000a",
+                      "tertiary-container": "#e79400",
+                      "on-background": "#e0e2ed",
+                      "error": "#ffb4ab",
+                      "surface-container-highest": "#32353d",
+                      "background": "#10131b",
+                      "on-tertiary-container": "#563400",
+                      "on-error": "#690005",
+                      "secondary-fixed": "#e1e0ff",
+                      "on-surface-variant": "#bcc9cd",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "on-primary-fixed-variant": "#004e5c",
+                      "surface-variant": "#32353d",
+                      "on-primary-container": "#00424f",
+                      "primary-container": "#06b6d4",
+                      "inverse-primary": "#00687a",
+                      "primary-fixed": "#acedff",
+                      "secondary": "#c0c1ff",
+                      "on-error-container": "#ffdad6",
+                      "surface-tint": "#4cd7f6",
+                      "inverse-on-surface": "#2d3038",
+                      "on-primary-fixed": "#001f26",
+                      "surface-container": "#1c2027",
+                      "surface-bright": "#363941",
+                      "on-primary": "#003640"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-dense": "4px",
+                      "container-padding": "24px",
+                      "gutter": "16px",
+                      "unit": "4px",
+                      "stack-compact": "8px"
+              },
+              "fontFamily": {
+                      "display-lg": ["Plus Jakarta Sans"],
+                      "data-mono": ["JetBrains Mono"],
+                      "headline-md": ["Plus Jakarta Sans"],
+                      "body-sm": ["Inter"],
+                      "label-caps": ["JetBrains Mono"],
+                      "body-md": ["Inter"]
+              },
+              "animation": {
+                      "fade-in-up": "fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards"
+              },
+              "keyframes": {
+                      "fadeInUp": {
+                              "0%": { opacity: "0", transform: "translateY(20px) scale(0.98)" },
+                              "100%": { opacity: "1", transform: "translateY(0) scale(1)" }
+                      }
+              }
+            },
+          },
+        }
+      </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #32353d; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3d494c; 
+        }
+        
+        /* Obsidian Glass Card */
+        .glass-card {
+            background: rgba(24, 28, 35, 0.4);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-card:hover {
+            border-color: rgba(6, 182, 212, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8), 0 0 24px rgba(6, 182, 212, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Matrix Heatmap Cells */
+        .heatmap-cell {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            background-color: rgba(28, 32, 39, 0.6);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.3);
+            z-index: 10;
+        }
+        .heatmap-lvl-1 { background: linear-gradient(135deg, #004e5c, #003640); }
+        .heatmap-lvl-2 { background: linear-gradient(135deg, #00687a, #004e5c); }
+        .heatmap-lvl-3 { background: linear-gradient(135deg, #06b6d4, #00687a); box-shadow: 0 0 8px rgba(6, 182, 212, 0.5); }
+        .heatmap-lvl-4 { background: linear-gradient(135deg, #4cd7f6, #06b6d4); box-shadow: 0 0 12px rgba(76, 215, 246, 0.8); }
+
+        .digital-timer {
+            font-size: 56px;
+            line-height: 1;
+            letter-spacing: 0.05em;
+        }
+
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+        }
+        #core-canvas {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+      </style>
+</head>
+<body class="bg-transparent text-on-surface font-body-md min-h-screen overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container relative">
+<!-- WebGL Background -->
+<canvas id="bg-canvas"></canvas>
+<!-- TopNavBar -->
+<nav class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 z-40 border-b border-white/5 bg-surface/60 backdrop-blur-3xl shadow-sm flex justify-between items-center px-6 gap-4">
+<!-- Search -->
+<div class="flex-1 max-w-md relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors text-[20px]" data-icon="search">search</span>
+<input class="w-full bg-black/40 border border-white/5 rounded-md py-2 pl-10 pr-4 font-data-mono text-data-mono text-on-surface placeholder:text-outline-variant focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all outline-none backdrop-blur-md" placeholder="Command Palette... (⌘K)" type="text"/>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 border-r border-white/10 pr-4">
+<button class="text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors p-2 rounded-md">
+<span class="material-symbols-outlined text-[20px]" data-icon="timer">timer</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors p-2 rounded-md">
+<span class="material-symbols-outlined text-[20px]" data-icon="backup">backup</span>
+</button>
+</div>
+<button class="text-primary hover:text-primary-fixed transition-colors font-data-mono text-data-mono px-3 py-1.5 border border-white/10 rounded hover:border-primary backdrop-blur-sm">
+                Import
+            </button>
+<button class="bg-primary-container/90 text-on-primary-container font-data-mono text-data-mono px-4 py-1.5 rounded font-bold hover:bg-primary transition-colors backdrop-blur-sm shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                New Note
+            </button>
+<button class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-white/10 hover:border-primary transition-colors">
+<img class="w-full h-full object-cover" data-alt="A highly detailed close-up of an abstract cybernetic eye glowing in neon cyan against an obsidian black background. The image should feature intricate mechanical textures, subtle reflections of data streams, and high-tech minimalist glassmorphism elements. Soft white rim lighting highlights the polished metal surfaces." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDOuifl1QeAjGM9DgT1TInUY6jKaSWIKHVPkvBYlpk5b4trrtBcV9eiU6JfElUhuVknbBmOlVXSKM3Ub6Ne6smE5roWjuQanaZqWmRYDssMZejhazAlf-Dl4kKa2rbpawvDlq4JYYS1jIaQ_WUSFah8a1ahqusek_07Fj6hh-JbN0niEAY8kIMmR3aKxpvDWvKk4HzoKBAtAwEc7gFQGa15W0kzRB6hHykZ9sXNQU63X2aj7X7A3UzHg"/>
+</button>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="w-[260px] h-screen fixed left-0 top-0 overflow-y-auto border-r border-white/5 bg-[#0b0e15]/80 backdrop-blur-2xl flex flex-col h-full py-6 z-50">
+<!-- Header -->
+<div class="px-6 mb-8">
+<h1 class="font-display-lg text-headline-md text-primary drop-shadow-[0_0_12px_rgba(76,215,246,0.6)] truncate">System Command</h1>
+<p class="font-data-mono text-[10px] text-outline mt-1 uppercase tracking-widest">Executive Workflow</p>
+</div>
+<!-- Nav Links -->
+<nav class="flex-1 flex flex-col gap-1 px-3">
+<a class="text-primary font-bold border-l border-primary bg-primary/10 flex items-center gap-3 px-3 py-2 rounded-r-md shadow-[inset_2px_0_10px_rgba(6,182,212,0.1)]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="checklist">checklist</span>
+                Tasks
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="auto_stories">auto_stories</span>
+                Journal
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="menu_book">menu_book</span>
+                Knowledge Base
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="architecture">architecture</span>
+                Project Hub
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="timer">timer</span>
+                Focus Timer
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="hub">hub</span>
+                Skills Graph
+            </a>
+<div class="my-2 border-t border-white/5"></div>
+<p class="px-4 py-1 font-label-caps text-label-caps text-outline-variant">Integrations</p>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="terminal">terminal</span>
+                GitHub Hub
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="code">code</span>
+                LeetCode
+            </a>
+<div class="my-2 border-t border-white/5"></div>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="insights">insights</span>
+                Analytics
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="bug_report">bug_report</span>
+                Mistake Engine
+            </a>
+<a class="text-on-surface-variant font-body-md flex items-center gap-3 px-3 py-2 hover:text-primary hover:bg-primary/5 transition-all duration-200 rounded-md border-l border-transparent hover:border-primary/50" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+                Settings
+            </a>
+</nav>
+<!-- User Badge Bottom -->
+<div class="mt-auto px-6 pt-4 border-t border-white/5">
+<div class="flex items-center gap-3 pb-2">
+<div class="w-8 h-8 rounded bg-white/5 flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="shield_person">shield_person</span>
+</div>
+<div>
+<p class="font-data-mono text-data-mono text-on-surface">Admin</p>
+<p class="font-label-caps text-label-caps text-primary/80 drop-shadow-[0_0_4px_rgba(76,215,246,0.5)]">Sys Active</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-[260px] pt-16 min-h-screen p-container-padding grid gap-stack-compact auto-rows-max relative z-10">
+<!-- Section Header -->
+<header class="mb-4 flex items-end justify-between opacity-0 animate-fade-in-up" style="animation-delay: 0.1s;">
+<div>
+<h2 class="font-display-lg text-headline-md text-on-surface">Obsidian OS Overview</h2>
+<p class="font-data-mono text-data-mono text-outline mt-1">Status: Operational // Data Synced</p>
+</div>
+<div class="font-data-mono text-data-mono text-primary flex items-center gap-2 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+                LIVE METRICS
+            </div>
+</header>
+<!-- Hero Metrics Row -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-2">
+<!-- Metric 1 -->
+<div class="glass-card rounded-lg p-4 flex flex-col justify-between h-28 relative overflow-hidden group opacity-0 animate-fade-in-up" style="animation-delay: 0.2s;">
+<div class="absolute -right-4 -top-4 w-16 h-16 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/30 transition-all duration-500"></div>
+<div class="flex justify-between items-start z-10">
+<span class="font-label-caps text-label-caps text-outline-variant uppercase">Daily Focus Hours</span>
+<span class="material-symbols-outlined text-outline-variant text-[16px]" data-icon="timer">timer</span>
+</div>
+<div class="flex items-baseline gap-2 z-10">
+<span class="font-data-mono font-bold text-headline-md text-on-surface">4.5</span>
+<span class="font-data-mono text-[11px] text-outline">hrs</span>
+<span class="font-data-mono text-[11px] text-[#06b6d4] ml-auto bg-[#06b6d4]/10 px-1.5 py-0.5 rounded border border-[#06b6d4]/20 shadow-[0_0_8px_rgba(6,182,212,0.2)]">+15% ↑</span>
+</div>
+</div>
+<!-- Metric 2 -->
+<div class="glass-card rounded-lg p-4 flex flex-col justify-between h-28 relative overflow-hidden group opacity-0 animate-fade-in-up" style="animation-delay: 0.3s;">
+<div class="absolute -right-4 -top-4 w-16 h-16 bg-tertiary/10 rounded-full blur-xl group-hover:bg-tertiary/30 transition-all duration-500"></div>
+<div class="flex justify-between items-start z-10">
+<span class="font-label-caps text-label-caps text-outline-variant uppercase">LeetCode Solved</span>
+<span class="material-symbols-outlined text-outline-variant text-[16px]" data-icon="code">code</span>
+</div>
+<div class="flex items-baseline gap-2 z-10">
+<span class="font-data-mono font-bold text-headline-md text-on-surface">342</span>
+<span class="font-data-mono text-[11px] text-outline">total</span>
+</div>
+</div>
+<!-- Metric 3 -->
+<div class="glass-card rounded-lg p-4 flex flex-col justify-between h-28 relative overflow-hidden group opacity-0 animate-fade-in-up" style="animation-delay: 0.4s;">
+<div class="absolute -right-4 -top-4 w-16 h-16 bg-secondary/10 rounded-full blur-xl group-hover:bg-secondary/30 transition-all duration-500"></div>
+<div class="flex justify-between items-start z-10">
+<span class="font-label-caps text-label-caps text-outline-variant uppercase">GitHub Today</span>
+<span class="material-symbols-outlined text-outline-variant text-[16px]" data-icon="terminal">terminal</span>
+</div>
+<div class="flex items-baseline gap-2 z-10">
+<span class="font-data-mono font-bold text-headline-md text-on-surface">12</span>
+<span class="font-data-mono text-[11px] text-outline">commits</span>
+</div>
+</div>
+<!-- Metric 4 -->
+<div class="glass-card rounded-lg p-4 flex flex-col justify-between h-28 relative overflow-hidden group opacity-0 animate-fade-in-up" style="animation-delay: 0.5s;">
+<div class="absolute -right-4 -top-4 w-16 h-16 bg-[#10b981]/10 rounded-full blur-xl group-hover:bg-[#10b981]/30 transition-all duration-500"></div>
+<div class="flex justify-between items-start z-10">
+<span class="font-label-caps text-label-caps text-outline-variant uppercase">Consistency</span>
+<span class="material-symbols-outlined text-outline-variant text-[16px]" data-icon="trending_up">trending_up</span>
+</div>
+<div class="flex items-baseline gap-2 z-10">
+<span class="font-data-mono font-bold text-headline-md text-on-surface">94</span>
+<span class="font-data-mono text-[11px] text-[#10b981]">% streak</span>
+<div class="ml-auto flex gap-0.5">
+<div class="w-1 h-3 bg-[#10b981] rounded-sm"></div>
+<div class="w-1 h-4 bg-[#10b981] rounded-sm"></div>
+<div class="w-1 h-2 bg-[#10b981] rounded-sm"></div>
+<div class="w-1 h-5 bg-[#10b981] rounded-sm"></div>
+<div class="w-1 h-4 bg-[#10b981] rounded-sm shadow-[0_0_8px_rgba(16,185,129,0.9)]"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Center Grid (Matrix & Timer) -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-gutter mb-2 h-auto lg:h-80">
+<!-- Left: Unified Heatmap Matrix -->
+<div class="lg:col-span-2 glass-card rounded-lg p-5 flex flex-col opacity-0 animate-fade-in-up" style="animation-delay: 0.6s;">
+<div class="flex justify-between items-center mb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px] drop-shadow-[0_0_5px_rgba(6,182,212,0.8)]" data-icon="grid_on">grid_on</span>
+<h3 class="font-headline-md text-[16px] text-on-surface">Unified Activity Matrix</h3>
+</div>
+<div class="flex gap-2 items-center font-data-mono text-[10px] text-outline">
+<span>Less</span>
+<div class="w-2.5 h-2.5 rounded-sm bg-black/40 border border-white/5"></div>
+<div class="w-2.5 h-2.5 rounded-sm heatmap-lvl-1"></div>
+<div class="w-2.5 h-2.5 rounded-sm heatmap-lvl-3"></div>
+<div class="w-2.5 h-2.5 rounded-sm heatmap-lvl-4"></div>
+<span>More</span>
+</div>
+</div>
+<!-- Heatmap Grid (Simulated 52 weeks x 7 days) -->
+<div class="flex-1 overflow-x-auto pb-2 flex gap-1 z-10">
+<!-- Generating a dense grid for visual effect -->
+<script>
+                        document.write('<div class="flex gap-1">');
+                        for(let w=0; w<40; w++) { // Cols
+                            document.write('<div class="flex flex-col gap-1">');
+                            for(let d=0; d<7; d++) { // Rows
+                                let level = 0;
+                                let rand = Math.random();
+                                if(rand > 0.9) level = 4;
+                                else if(rand > 0.7) level = 3;
+                                else if(rand > 0.4) level = 2;
+                                else if(rand > 0.2) level = 1;
+                                
+                                let cellClass = level > 0 ? `heatmap-lvl-${level}` : 'bg-black/20 border border-white/5';
+                                document.write(`<div class="heatmap-cell ${cellClass}" title="Activity level ${level}"></div>`);
+                            }
+                            document.write('</div>');
+                        }
+                        document.write('</div>');
+                    </script>
+</div>
+<div class="font-data-mono text-[11px] text-outline-variant mt-2 flex justify-between z-10">
+<span>Data: GitHub + LeetCode</span>
+<span>Last 365 Days</span>
+</div>
+</div>
+<!-- Right: System Core / Focus Stopwatch -->
+<div class="glass-card rounded-lg p-6 flex flex-col items-center justify-center relative overflow-hidden group opacity-0 animate-fade-in-up" style="animation-delay: 0.7s;">
+<!-- 3D Core Canvas Container -->
+<div id="core-canvas"></div>
+<script>
+                    // Embed ANIMATION_9 logic here if feasible, or let external script handle it targeting #core-canvas
+                    // The prompt requests <!-- STITCH_SHADER_START:ANIMATION_9 class="" -->
+<div class="" style="display:block;width:100%;height:100%;min-height:200px;">
+<canvas id="shader-canvas-ANIMATION_9" style="display:block;width:100%;height:100%"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_9');
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+varying vec2 v_texCoord;
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+
+float noise(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+float smoothNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = noise(i);
+    float b = noise(i + vec2(1.0, 0.0));
+    float c = noise(i + vec2(0.0, 1.0));
+    float d = noise(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+        v += a * smoothNoise(p);
+        p *= 2.0;
+        a *= 0.5;
+    }
+    return v;
+}
+
+void main() {
+    vec2 uv = v_texCoord;
+    vec2 p = uv * 3.0;
+    
+    // Atmospheric flow
+    float n = fbm(p + u_time * 0.05);
+    
+    // Base Midnight Obsidian color
+    vec3 color = vec3(0.027, 0.039, 0.067); // #070A11 approx
+    
+    // Subtle Cyber Cyan highlights (#06B6D4)
+    vec3 cyan = vec3(0.023, 0.714, 0.831);
+    float glow = pow(n, 4.0) * 0.4;
+    color = mix(color, cyan, glow);
+    
+    // Mouse interaction - subtle ripple
+    float mDist = distance(uv, u_mouse / u_resolution);
+    color += cyan * (0.05 / (mDist + 0.15)) * 0.2;
+    
+    // Edge vignette
+    float vignette = smoothstep(1.2, 0.5, length(uv - 0.5));
+    color *= vignette;
+
+    gl_FragColor = vec4(color, 1.0);
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_9 -->
+                    // Note: In actual implementation, the Three.js code would initialize on #core-canvas
+                </script>
+<h3 class="font-label-caps text-label-caps text-outline tracking-[0.2em] mb-6 absolute top-6 z-10 drop-shadow-[0_0_5px_rgba(0,0,0,0.8)]">System Core Active</h3>
+<!-- Digital Timer Display -->
+<div class="font-data-mono digital-timer text-on-surface drop-shadow-[0_0_15px_rgba(6,182,212,0.6)] my-auto flex items-baseline z-10 font-bold">
+                     01<span class="text-primary/70 text-[40px] animate-pulse">:</span>45<span class="text-primary/70 text-[40px] animate-pulse">:</span>22
+                 </div>
+<!-- Category Pills -->
+<div class="flex gap-2 mt-auto z-10 w-full justify-center pb-4">
+<button class="px-3 py-1 rounded-full border border-primary text-primary font-data-mono text-[10px] bg-primary/10 shadow-[0_0_12px_rgba(6,182,212,0.3)] backdrop-blur-md">Coding</button>
+<button class="px-3 py-1 rounded-full border border-white/10 text-outline-variant font-data-mono text-[10px] hover:border-outline hover:text-outline transition-colors backdrop-blur-md bg-black/20">Learning</button>
+<button class="px-3 py-1 rounded-full border border-white/10 text-outline-variant font-data-mono text-[10px] hover:border-outline hover:text-outline transition-colors backdrop-blur-md bg-black/20">Research</button>
+</div>
+<!-- Controls -->
+<div class="w-full grid grid-cols-2 gap-2 z-10">
+<button class="py-2 bg-black/40 border border-white/10 rounded font-data-mono text-data-mono text-on-surface hover:bg-white/5 transition-colors flex justify-center items-center gap-1 backdrop-blur-md">
+<span class="material-symbols-outlined text-[16px]" data-icon="pause">pause</span> Pause
+                     </button>
+<button class="py-2 bg-primary-container/30 border border-primary-container text-primary-container rounded font-data-mono text-data-mono hover:bg-primary-container hover:text-on-primary-container transition-all flex justify-center items-center gap-1 shadow-[0_0_15px_rgba(6,182,212,0.2)] backdrop-blur-md">
+<span class="material-symbols-outlined text-[16px]" data-icon="stop">stop</span> Log
+                     </button>
+</div>
+</div>
+</section>
+<!-- Bottom Grid (3 Columns) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Col 1: Today's Tasks -->
+<div class="glass-card rounded-lg p-5 flex flex-col h-80 opacity-0 animate-fade-in-up" style="animation-delay: 0.8s;">
+<div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+<h3 class="font-data-mono text-[13px] text-on-surface font-bold drop-shadow-[0_0_4px_rgba(255,255,255,0.2)]">Execution Queue</h3>
+<span class="material-symbols-outlined text-outline text-[16px]" data-icon="checklist">checklist</span>
+</div>
+<div class="flex flex-col gap-2 overflow-y-auto pr-1">
+<!-- Task Item 1 -->
+<div class="flex items-start gap-3 p-2 rounded bg-black/20 border border-white/5 hover:border-primary/50 transition-colors group cursor-pointer backdrop-blur-sm">
+<div class="mt-0.5 w-4 h-4 rounded-sm border border-primary flex items-center justify-center bg-primary/10 shadow-[0_0_8px_rgba(6,182,212,0.2)]">
+<span class="material-symbols-outlined text-[12px] text-primary opacity-100" data-icon="check">check</span>
+</div>
+<div class="flex-1">
+<p class="font-body-sm text-[13px] text-on-surface-variant line-through opacity-70">Complete Graph Algo Module</p>
+<p class="font-data-mono text-[9px] text-outline mt-1">Done - 2h ago</p>
+</div>
+</div>
+<!-- Task Item 2 -->
+<div class="flex items-start gap-3 p-2 rounded bg-primary/5 border-l border-l-primary shadow-[inset_2px_0_10px_rgba(6,182,212,0.1)] group cursor-pointer relative overflow-hidden backdrop-blur-sm">
+<div class="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="mt-0.5 w-4 h-4 rounded-sm border border-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors shadow-[0_0_5px_rgba(6,182,212,0.3)]"></div>
+<div class="flex-1 relative z-10">
+<p class="font-body-sm text-[13px] text-on-surface font-semibold drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]">Refactor Data Pipeline</p>
+<div class="flex gap-2 mt-1 items-center">
+<span class="px-1.5 py-0.5 rounded bg-primary/20 text-primary font-data-mono text-[9px] border border-primary/30 shadow-[0_0_5px_rgba(6,182,212,0.2)]">P1</span>
+<p class="font-data-mono text-[9px] text-primary/80">In Progress</p>
+</div>
+</div>
+</div>
+<!-- Task Item 3 -->
+<div class="flex items-start gap-3 p-2 rounded bg-black/20 border border-white/5 hover:border-outline-variant transition-colors group cursor-pointer backdrop-blur-sm">
+<div class="mt-0.5 w-4 h-4 rounded-sm border border-white/20 flex items-center justify-center group-hover:border-white/40"></div>
+<div class="flex-1">
+<p class="font-body-sm text-[13px] text-on-surface-variant group-hover:text-on-surface transition-colors">Read System Design Ch 4</p>
+<p class="font-data-mono text-[9px] text-outline mt-1">Pending</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Col 2: Mistake Logs -->
+<div class="glass-card rounded-lg p-5 flex flex-col h-80 relative opacity-0 animate-fade-in-up" style="animation-delay: 0.9s;">
+<!-- Red ambient glow for error context -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-[#ffb4ab]/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2 z-10">
+<h3 class="font-data-mono text-[13px] text-on-surface font-bold drop-shadow-[0_0_4px_rgba(255,255,255,0.2)]">Error Analytics</h3>
+<span class="material-symbols-outlined text-[#ffb4ab] text-[16px] drop-shadow-[0_0_5px_rgba(255,180,171,0.5)]" data-icon="bug_report">bug_report</span>
+</div>
+<div class="flex flex-col gap-unit overflow-y-auto pr-1 z-10">
+<!-- Log 1 -->
+<div class="p-3 bg-black/40 border border-[#ffb4ab]/20 rounded-md border-l-[3px] border-l-[#ffb4ab] backdrop-blur-sm shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+<div class="flex justify-between items-start mb-1">
+<span class="font-data-mono text-[10px] text-[#ffb4ab] bg-[#ffb4ab]/10 px-1 rounded border border-[#ffb4ab]/20">Memory Leak</span>
+<span class="font-data-mono font-bold text-[10px] text-outline">14:32</span>
+</div>
+<p class="font-body-sm text-[12px] text-on-surface">Forgot to close DB connection in worker thread.</p>
+</div>
+<!-- Log 2 -->
+<div class="p-3 bg-black/20 border border-white/5 rounded-md border-l-[3px] border-l-tertiary backdrop-blur-sm mt-2">
+<div class="flex justify-between items-start mb-1">
+<span class="font-data-mono text-[10px] text-tertiary bg-tertiary/10 px-1 rounded border border-tertiary/20">Logic Flow</span>
+<span class="font-data-mono font-bold text-[10px] text-outline">Yesterday</span>
+</div>
+<p class="font-body-sm text-[12px] text-on-surface-variant">Edge case missed in DP solution for LeetCode 1143.</p>
+</div>
+</div>
+<button class="mt-auto w-full py-1.5 border border-white/10 border-dashed text-outline text-[11px] font-data-mono rounded hover:bg-white/5 hover:text-on-surface transition-colors z-10 backdrop-blur-sm">
+                    + Log Incident
+                </button>
+</div>
+<!-- Col 3: GitHub Feed -->
+<div class="glass-card rounded-lg p-5 flex flex-col h-80 opacity-0 animate-fade-in-up" style="animation-delay: 1.0s;">
+<div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+<h3 class="font-data-mono text-[13px] text-on-surface font-bold drop-shadow-[0_0_4px_rgba(255,255,255,0.2)]">Git Telemetry</h3>
+<span class="material-symbols-outlined text-outline text-[16px]" data-icon="commit">commit</span>
+</div>
+<div class="relative flex-1 overflow-hidden">
+<!-- Vertical Timeline Line -->
+<div class="absolute left-2 top-2 bottom-0 w-px bg-white/10"></div>
+<div class="flex flex-col gap-4 overflow-y-auto h-full pr-1 pb-4 relative z-10">
+<!-- Commit 1 -->
+<div class="flex gap-3 relative">
+<div class="w-4 h-4 rounded-full bg-black border-2 border-primary mt-0.5 shrink-0 z-10 shadow-[0_0_8px_rgba(6,182,212,0.6)]"></div>
+<div>
+<p class="font-data-mono text-[11px] text-on-surface drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]">feat: implement abstract matrix</p>
+<div class="flex gap-2 items-center mt-0.5">
+<span class="text-[9px] font-data-mono text-outline">repo: core-engine</span>
+<span class="text-[9px] font-data-mono text-primary font-bold">#a3f9b2</span>
+</div>
+</div>
+</div>
+<!-- Commit 2 -->
+<div class="flex gap-3 relative">
+<div class="w-4 h-4 rounded-full bg-black border-2 border-white/20 mt-0.5 shrink-0 z-10"></div>
+<div>
+<p class="font-data-mono text-[11px] text-on-surface-variant">fix: layout shift on mobile nav</p>
+<div class="flex gap-2 items-center mt-0.5">
+<span class="text-[9px] font-data-mono text-outline">repo: frontend-v2</span>
+<span class="text-[9px] font-data-mono font-bold text-outline-variant">#c1d4e5</span>
+</div>
+</div>
+</div>
+<!-- Commit 3 -->
+<div class="flex gap-3 relative">
+<div class="w-4 h-4 rounded-full bg-black border-2 border-white/20 mt-0.5 shrink-0 z-10"></div>
+<div>
+<p class="font-data-mono text-[11px] text-on-surface-variant">docs: update api schema</p>
+<div class="flex gap-2 items-center mt-0.5">
+<span class="text-[9px] font-data-mono text-outline">repo: core-engine</span>
+<span class="text-[9px] font-data-mono font-bold text-outline-variant">#88f2a1</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+    // Placeholder to run the requested WebGL background scripts if they were provided directly.
+    // In a real environment, the contents of <!-- STITCH_THREEJS_START:ANIMATION_8 class="" -->
+<div class="" style="display:block;width:100%;height:100%;min-height:200px;">
+<script src="https://ajax.googleapis.com/ajax/libs/threejs/r125/three.min.js"></script>
+<div id="threejs-container-ANIMATION_8" style="width:100%;height:100%"></div>
+<script>
+(function() {
+  const container = document.getElementById('threejs-container-ANIMATION_8');
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const width = container.clientWidth || window.innerWidth;
+const height = container.clientHeight || window.innerHeight;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+camera.position.z = 5;
+
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+renderer.setSize(width, height);
+renderer.setPixelRatio(window.devicePixelRatio);
+container.appendChild(renderer.domElement);
+
+// Create a "Data Core" - a glowing geometric nucleus
+const geometry = new THREE.IcosahedronGeometry(2, 2);
+const wireframeGeom = new THREE.IcosahedronGeometry(2.2, 1);
+
+const material = new THREE.MeshPhongMaterial({
+    color: 0x06B6D4,
+    transparent: true,
+    opacity: 0.2,
+    flatShading: true,
+});
+
+const wireframeMat = new THREE.MeshBasicMaterial({
+    color: 0x06B6D4,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.1
+});
+
+const core = new THREE.Mesh(geometry, material);
+const shell = new THREE.Mesh(wireframeGeom, wireframeMat);
+
+scene.add(core);
+scene.add(shell);
+
+// Floating particles
+const particlesGeom = new THREE.BufferGeometry();
+const particlesCount = 100;
+const posArray = new Float32Array(particlesCount * 3);
+
+for(let i=0; i < particlesCount * 3; i++) {
+    posArray[i] = (Math.random() - 0.5) * 10;
+}
+
+particlesGeom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+const particlesMat = new THREE.PointsMaterial({
+    size: 0.02,
+    color: 0x06B6D4,
+    transparent: true,
+    opacity: 0.8
+});
+
+const particlesMesh = new THREE.Points(particlesGeom, particlesMat);
+scene.add(particlesMesh);
+
+const light = new THREE.PointLight(0x06B6D4, 2, 10);
+light.position.set(2, 2, 2);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040));
+
+function animate() {
+    requestAnimationFrame(animate);
+    
+    core.rotation.y += 0.005;
+    shell.rotation.y -= 0.003;
+    shell.rotation.z += 0.002;
+    
+    particlesMesh.rotation.y += 0.001;
+    
+    // Gentle floating motion
+    core.position.y = Math.sin(Date.now() * 0.001) * 0.1;
+    
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    const w = container.clientWidth || window.innerWidth;
+    const h = container.clientHeight || window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+});
+
+animate();
+})();
+</script>
+</div>
+<!-- STITCH_THREEJS_END:ANIMATION_8 --> and <!-- STITCH_SHADER_START:ANIMATION_9 class="" -->
+<div class="" style="display:block;width:100%;height:100%;min-height:200px;">
+<canvas id="shader-canvas-ANIMATION_9" style="display:block;width:100%;height:100%"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_9');
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+varying vec2 v_texCoord;
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+
+float noise(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+float smoothNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = noise(i);
+    float b = noise(i + vec2(1.0, 0.0));
+    float c = noise(i + vec2(0.0, 1.0));
+    float d = noise(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+        v += a * smoothNoise(p);
+        p *= 2.0;
+        a *= 0.5;
+    }
+    return v;
+}
+
+void main() {
+    vec2 uv = v_texCoord;
+    vec2 p = uv * 3.0;
+    
+    // Atmospheric flow
+    float n = fbm(p + u_time * 0.05);
+    
+    // Base Midnight Obsidian color
+    vec3 color = vec3(0.027, 0.039, 0.067); // #070A11 approx
+    
+    // Subtle Cyber Cyan highlights (#06B6D4)
+    vec3 cyan = vec3(0.023, 0.714, 0.831);
+    float glow = pow(n, 4.0) * 0.4;
+    color = mix(color, cyan, glow);
+    
+    // Mouse interaction - subtle ripple
+    float mDist = distance(uv, u_mouse / u_resolution);
+    color += cyan * (0.05 / (mDist + 0.15)) * 0.2;
+    
+    // Edge vignette
+    float vignette = smoothstep(1.2, 0.5, length(uv - 0.5));
+    color *= vignette;
+
+    gl_FragColor = vec4(color, 1.0);
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_9 --> 
+    // would be injected here to target #bg-canvas and #core-canvas.
+</script>
+</body></html>
