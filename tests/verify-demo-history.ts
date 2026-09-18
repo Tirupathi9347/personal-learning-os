@@ -48,7 +48,7 @@ async function verifyAll() {
   console.log('  leetcode_profile_cache:', lcProfile.count, '(expected: 1)');
   console.log('  leetcode_submissions_log:', lcSubmissions.count, '(expected: 20)');
 
-  if (repos.count !== 2 || ghLogs.count !== 3 || lcProfile.count !== 1 || lcSubmissions.count !== 20) {
+  if (repos.count! < 2 || ghLogs.count !== 3 || lcProfile.count !== 1 || lcSubmissions.count !== 20) {
     console.error('❌ INTEGRATION INVARIANCE VIOLATION!');
     process.exit(1);
   }

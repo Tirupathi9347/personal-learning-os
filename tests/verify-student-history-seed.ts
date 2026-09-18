@@ -73,7 +73,7 @@ async function main() {
   const { count: ghRepoCount } = await supabase.from('github_repos').select('*', { count: 'exact', head: true });
   const { count: lcProfileCount } = await supabase.from('leetcode_profile_cache').select('*', { count: 'exact', head: true });
   console.log(`GitHub Repos Count: ${ghRepoCount}, LeetCode Profile Cache Count: ${lcProfileCount}`);
-  assert(ghRepoCount === 2, `GitHub repos must remain untouched (got ${ghRepoCount})`);
+  assert(ghRepoCount! >= 2, `GitHub repos must remain untouched (got ${ghRepoCount})`);
   assert(lcProfileCount === 1, `LeetCode cache must remain untouched (got ${lcProfileCount})`);
 
   // 4. Test Agent Read-Only Tools

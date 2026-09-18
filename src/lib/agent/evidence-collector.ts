@@ -110,48 +110,71 @@ export async function collectStudentEvidence(): Promise<EvidenceCollectionResult
     unconnectedSources.push({ source: 'profile', reason: err.message });
   }
 
-  // Helper to resolve linked skill for any evidence item
+  // Helper to resolve all linked skills for any evidence item (supports multiple universal evidence_links)
+  const resolveLinkedSkills = (
+    sourceId: string,
+    fallbackSkillName?: string,
+    explicitSkillId?: string | null
+  ): Array<{ skillId?: string | null; skillName: string; linkWeight?: number }> => {
+    const results: Array<{ skillId?: string | null; skillName: string; linkWeight?: number }> = [];
+
+    // Priority A: Direct foreign key skill_id
+    if (explicitSkillId && skillsById.has(explicitSkillId)) {
+      results.push({
+        skillId: explicitSkillId,
+        skillName: skillsById.get(explicitSkillId)!.name,
+      });
+    }
+
+    // Priority B: Universal evidence_links (collect ALL target skills)
+    const links = evidenceLinksBySourceId.get(sourceId);
+    if (links && links.length > 0) {
+      for (const l of links) {
+        if (l.target_type === 'skill' && skillsById.has(l.target_id)) {
+          const sk = skillsById.get(l.target_id)!;
+          if (!results.some((r) => r.skillId === sk.id)) {
+            results.push({
+              skillId: sk.id,
+              skillName: sk.name,
+              linkWeight: l.weight,
+            });
+          }
+        }
+      }
+    }
+
+    if (results.length > 0) {
+      return results;
+    }
+
+    // Priority C: Exact name match against known skills
+    if (fallbackSkillName) {
+      const trimmed = fallbackSkillName.toLowerCase().trim();
+      if (skillsByNameLower.has(trimmed)) {
+        const matched = skillsByNameLower.get(trimmed)!;
+        return [{ skillId: matched.id, skillName: matched.name }];
+      }
+
+      // Priority D: Substring match if text explicitly contains a known skill
+      for (const [nameLower, sk] of skillsByNameLower.entries()) {
+        if (nameLower.length >= 4 && (trimmed === nameLower || trimmed.includes(nameLower))) {
+          return [{ skillId: sk.id, skillName: sk.name }];
+        }
+      }
+    }
+
+    // Fallback: Use provided string or 'General'
+    return [{
+      skillId: explicitSkillId || null,
+      skillName: fallbackSkillName || 'General',
+    }];
+  };
+
   const resolveLinkedSkill = (
     sourceId: string,
     fallbackSkillName?: string,
     explicitSkillId?: string | null
-  ): { skillId?: string | null; skillName: string; linkWeight?: number } => {
-    // Priority A: Direct foreign key skill_id
-    if (explicitSkillId && skillsById.has(explicitSkillId)) {
-      return {
-        skillId: explicitSkillId,
-        skillName: skillsById.get(explicitSkillId)!.name,
-      };
-    }
-
-    // Priority B: Universal evidence_links
-    const links = evidenceLinksBySourceId.get(sourceId);
-    if (links && links.length > 0) {
-      const skillLink = links.find((l) => l.target_type === 'skill');
-      if (skillLink && skillsById.has(skillLink.target_id)) {
-        return {
-          skillId: skillLink.target_id,
-          skillName: skillsById.get(skillLink.target_id)!.name,
-          linkWeight: skillLink.weight,
-        };
-      }
-    }
-
-    // Priority C: Exact name match against known skills
-    if (fallbackSkillName && skillsByNameLower.has(fallbackSkillName.toLowerCase().trim())) {
-      const matched = skillsByNameLower.get(fallbackSkillName.toLowerCase().trim())!;
-      return {
-        skillId: matched.id,
-        skillName: matched.name,
-      };
-    }
-
-    // Fallback: Use provided string or 'General'
-    return {
-      skillId: explicitSkillId || null,
-      skillName: fallbackSkillName || 'General',
-    };
-  };
+  ) => resolveLinkedSkills(sourceId, fallbackSkillName, explicitSkillId)[0];
 
   // 3. Student Profile
   try {
@@ -312,30 +335,32 @@ export async function collectStudentEvidence(): Promise<EvidenceCollectionResult
     if (tasks && tasks.length > 0) {
       connectedSourcesSet.add('task');
       for (const t of tasks) {
-        const resolved = resolveLinkedSkill(t.id, t.title);
+        const resolvedList = resolveLinkedSkills(t.id, t.title);
         const isCompleted = t.status === 'completed';
         const isProblematic = t.postponed_count >= 3 || t.status === 'cancelled';
 
-        records.push({
-          id: `evidence-task-${t.id}`,
-          source: 'task',
-          classification: 'OBSERVED',
-          targetSkillName: resolved.skillName,
-          targetSkillId: resolved.skillId,
-          description: `Task: "${t.title}" [Status: ${t.status}, Priority: ${t.priority}]${t.postponed_count > 0 ? ` (Postponed ${t.postponed_count} times)` : ''}`,
-          polarity: isCompleted ? 'SUPPORTS' : isProblematic ? 'CONTRADICTS' : 'NEUTRAL',
-          weight: resolved.linkWeight ?? (isCompleted ? 0.5 : isProblematic ? 0.4 : 0.2),
-          observedAt: t.completed_at || t.updated_at || t.created_at,
-          sourceRef: {
-            sourceType: 'task',
-            sourceId: t.id,
-            tableName: 'tasks',
-          },
-          metrics: {
-            frequency: t.postponed_count,
-          },
-        });
-        sourcesSummary.task++;
+        for (const resolved of resolvedList) {
+          records.push({
+            id: resolvedList.length === 1 ? `evidence-task-${t.id}` : `evidence-task-${t.id}-${resolved.skillId || resolved.skillName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+            source: 'task',
+            classification: 'OBSERVED',
+            targetSkillName: resolved.skillName,
+            targetSkillId: resolved.skillId,
+            description: `Task: "${t.title}" [Status: ${t.status}, Priority: ${t.priority}]${t.postponed_count > 0 ? ` (Postponed ${t.postponed_count} times)` : ''}`,
+            polarity: isCompleted ? 'SUPPORTS' : isProblematic ? 'CONTRADICTS' : 'NEUTRAL',
+            weight: resolved.linkWeight ?? (isCompleted ? 0.5 : isProblematic ? 0.4 : 0.2),
+            observedAt: t.completed_at || t.updated_at || t.created_at,
+            sourceRef: {
+              sourceType: 'task',
+              sourceId: t.id,
+              tableName: 'tasks',
+            },
+            metrics: {
+              frequency: t.postponed_count,
+            },
+          });
+          sourcesSummary.task++;
+        }
       }
     } else {
       unconnectedSources.push({ source: 'task', reason: 'tasks table is empty' });
@@ -357,29 +382,31 @@ export async function collectStudentEvidence(): Promise<EvidenceCollectionResult
     if (ghRepos && ghRepos.length > 0) {
       hasGhData = true;
       for (const repo of ghRepos) {
-        const resolved = resolveLinkedSkill(repo.id, repo.language || repo.name);
+        const resolvedList = resolveLinkedSkills(repo.id, repo.language || repo.name);
 
-        records.push({
-          id: `evidence-gh-repo-${repo.id}`,
-          source: 'github',
-          classification: 'EXTERNALLY_VERIFIED',
-          targetSkillName: resolved.skillName,
-          targetSkillId: resolved.skillId,
-          description: `Verified GitHub Repository: ${repo.full_name} (${repo.language || 'Codebase'}, ${repo.stargazers_count} stars, ${repo.forks_count} forks)${repo.description ? ` - ${repo.description}` : ''}`,
-          polarity: 'SUPPORTS',
-          weight: resolved.linkWeight ?? 0.7,
-          observedAt: repo.pushed_at || repo.updated_at || repo.created_at,
-          sourceRef: {
-            sourceType: 'github',
-            sourceId: repo.id,
-            externalId: String(repo.github_id),
-            url: repo.html_url,
-          },
-          metrics: {
-            score: repo.stargazers_count,
-          },
-        });
-        sourcesSummary.github++;
+        for (const resolved of resolvedList) {
+          records.push({
+            id: resolvedList.length === 1 ? `evidence-gh-repo-${repo.id}` : `evidence-gh-repo-${repo.id}-${resolved.skillId || resolved.skillName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+            source: 'github',
+            classification: 'EXTERNALLY_VERIFIED',
+            targetSkillName: resolved.skillName,
+            targetSkillId: resolved.skillId,
+            description: `Verified GitHub Repository: ${repo.full_name} (${repo.language || 'Codebase'}, ${repo.stargazers_count} stars, ${repo.forks_count} forks)${repo.description ? ` - ${repo.description}` : ''}`,
+            polarity: 'SUPPORTS',
+            weight: resolved.linkWeight ?? 0.7,
+            observedAt: repo.pushed_at || repo.updated_at || repo.created_at,
+            sourceRef: {
+              sourceType: 'github',
+              sourceId: repo.id,
+              externalId: String(repo.github_id),
+              url: repo.html_url,
+            },
+            metrics: {
+              score: repo.stargazers_count,
+            },
+          });
+          sourcesSummary.github++;
+        }
       }
     }
 
@@ -463,34 +490,36 @@ export async function collectStudentEvidence(): Promise<EvidenceCollectionResult
     if (lcSubs && lcSubs.length > 0) {
       hasLcData = true;
       for (const sub of lcSubs) {
-        const resolved = resolveLinkedSkill(sub.id, sub.lang || 'Algorithms');
+        const resolvedList = resolveLinkedSkills(sub.id, sub.lang || 'Algorithms');
         const isAccepted = sub.status === 'Accepted';
         const diffWeight =
           sub.difficulty === 'Hard' ? 0.9 :
           sub.difficulty === 'Medium' ? 0.7 : 0.5;
 
-        records.push({
-          id: `evidence-lc-sub-${sub.id}`,
-          source: 'leetcode',
-          classification: 'EXTERNALLY_VERIFIED',
-          targetSkillName: resolved.skillName,
-          targetSkillId: resolved.skillId,
-          description: `Verified LeetCode ${sub.difficulty} Submission: "${sub.title}" [Result: ${sub.status}${sub.lang ? `, Language: ${sub.lang}` : ''}]`,
-          polarity: isAccepted ? 'SUPPORTS' : 'CONTRADICTS',
-          weight: resolved.linkWeight ?? diffWeight,
-          observedAt: sub.timestamp,
-          sourceRef: {
-            sourceType: 'leetcode',
-            sourceId: sub.id,
-            externalId: sub.submission_id,
-            url: `https://leetcode.com/problems/${sub.title_slug}/`,
-          },
-          metrics: {
-            score: isAccepted ? 1 : 0,
-            totalPossible: 1,
-          },
-        });
-        sourcesSummary.leetcode++;
+        for (const resolved of resolvedList) {
+          records.push({
+            id: resolvedList.length === 1 ? `evidence-lc-sub-${sub.id}` : `evidence-lc-sub-${sub.id}-${resolved.skillId || resolved.skillName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+            source: 'leetcode',
+            classification: 'EXTERNALLY_VERIFIED',
+            targetSkillName: resolved.skillName,
+            targetSkillId: resolved.skillId,
+            description: `Verified LeetCode ${sub.difficulty} Submission: "${sub.title}" [Result: ${sub.status}${sub.lang ? `, Language: ${sub.lang}` : ''}]`,
+            polarity: isAccepted ? 'SUPPORTS' : 'CONTRADICTS',
+            weight: resolved.linkWeight ?? diffWeight,
+            observedAt: sub.timestamp,
+            sourceRef: {
+              sourceType: 'leetcode',
+              sourceId: sub.id,
+              externalId: sub.submission_id,
+              url: `https://leetcode.com/problems/${sub.title_slug}/`,
+            },
+            metrics: {
+              score: isAccepted ? 1 : 0,
+              totalPossible: 1,
+            },
+          });
+          sourcesSummary.leetcode++;
+        }
       }
     }
 

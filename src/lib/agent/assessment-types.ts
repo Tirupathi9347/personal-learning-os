@@ -118,8 +118,14 @@ export interface StudentLearningAssessment {
   developingAreas: string[];
   /** Skills with significant empirical gaps (claims without proof) */
   evidenceGaps: string[];
-  /** Skills with active empirical contradictions */
+  /** Skills classified as active empirical contradictions */
   contradictedAreas: string[];
+  /** Structured UI representation: Already demonstrated / verified strengths */
+  alreadyDemonstrated?: string[];
+  /** Structured UI representation: Topics needing reinforcement / remediation */
+  needsReinforcement?: string[];
+  /** Structured UI representation: New learning / topics with insufficient prior evidence */
+  newLearning?: string[];
   /** Observable behavioral learning patterns */
   observablePatterns: ObservableLearningPattern[];
   /** High-level summary of recent activity telemetry */

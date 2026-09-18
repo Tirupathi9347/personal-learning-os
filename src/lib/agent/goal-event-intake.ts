@@ -68,7 +68,7 @@ export function detectGoalCategory(normalizedText: string, explicitCategory?: Go
   }
 
   const lower = normalizedText.toLowerCase();
-  if (lower.includes('exam') || lower.includes('test') || lower.includes('midterm') || lower.includes('final') || lower.includes('quiz')) {
+  if (lower.includes('exam') || lower.includes('test') || lower.includes('midterm') || lower.includes('final') || lower.includes('quiz') || lower.includes('interview')) {
     return 'EXAM_PREPARATION';
   }
   if (lower.includes('schedule') || lower.includes('calendar') || lower.includes('deadline') || lower.includes('plan my week') || lower.includes('plan my day')) {

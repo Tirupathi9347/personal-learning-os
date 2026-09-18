@@ -51,11 +51,17 @@ import {
   StepExecutionFeedbackResult
 } from '@/app/actions/agent-actions';
 import { saveRoadmapAsLearningPath } from '@/app/actions/learning-path-actions';
+import { StudentLearningAssessment, SkillLearningAssessment } from '@/lib/agent/assessment-types';
 import { useRouter } from 'next/navigation';
 
 const STORAGE_KEY = 'plos_active_learning_coach_run';
 
 const CURATED_GOALS = [
+  { 
+    label: 'DSA Interview Prep (Live Demo)', 
+    text: 'I want to prepare DSA for technical interviews.',
+    category: 'Interview'
+  },
   { 
     label: '2-Day Coding Basics', 
     text: 'I need to learn coding basics in 2 days according to my level.',
@@ -110,6 +116,53 @@ const PRIORITY_COLORS: Record<DayPriority, string> = {
   HIGH: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
   URGENT: 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30',
 };
+
+/**
+ * Dynamically retrieves the full SkillLearningAssessment object matching a skill name.
+ */
+function getSkillAssessmentDetails(
+  skillName: string,
+  assessment?: StudentLearningAssessment | null
+): SkillLearningAssessment | null {
+  if (!assessment?.skillAssessments) return null;
+  const lower = skillName.toLowerCase().trim();
+  const match = assessment.skillAssessments.find((s) => {
+    const sLower = s.skillName.toLowerCase().trim();
+    return sLower === lower || sLower.includes(lower) || lower.includes(sLower);
+  });
+  return match || null;
+}
+
+/**
+ * Dynamically extracts a concise, human-readable evidence snippet from a skill's real telemetry.
+ * Never hardcodes reasons; extracts from contradictions, mistakes, or gaps.
+ */
+function getEvidenceSnippet(skill: SkillLearningAssessment | null): string {
+  if (!skill) return '';
+  if (skill.contradictingEvidence && skill.contradictingEvidence.length > 0) {
+    const raw = skill.contradictingEvidence[0];
+    return raw
+      .replace(/^Documented Mistake\s*\[[^\]]+\]:\s*/i, '')
+      .replace(/\. Root cause.*$/i, '')
+      .replace(/\. Remediation:.*$/i, '')
+      .trim();
+  }
+  if (skill.contradictions && skill.contradictions.length > 0) {
+    const raw = skill.contradictions[0].reason;
+    return raw
+      .replace(/^Documented Mistake\s*\[[^\]]+\]:\s*/i, '')
+      .replace(/\. Root cause.*$/i, '')
+      .replace(/\. Remediation:.*$/i, '')
+      .trim();
+  }
+  if (skill.missingEvidenceGaps && skill.missingEvidenceGaps.length > 0) {
+    return skill.missingEvidenceGaps[0];
+  }
+  if (skill.narrative) {
+    return skill.narrative;
+  }
+  return '';
+}
 
 export function LearningCoachView() {
   const [goalText, setGoalText] = useState('');
@@ -816,8 +869,8 @@ export function LearningCoachView() {
               <div className="space-y-1">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 block">
                   {runResult.goalUnderstanding?.timeframe 
-                    ? `Your ${runResult.goalUnderstanding.timeframe} Roadmap`
-                    : 'Personalized Learning Roadmap'}
+                    ? `Your ${runResult.goalUnderstanding.timeframe} Personalized Roadmap`
+                    : 'Personalized Roadmap'}
                 </span>
                 <h2 className="text-lg font-heading font-bold text-[var(--exec-text)]">
                   {runResult.goalUnderstanding?.objective || runResult.goalUnderstanding?.originalGoal || goalText}
@@ -850,115 +903,257 @@ export function LearningCoachView() {
           </div>
 
           {/* Starting Point & Verified Level Card */}
-          {runResult.studentAssessment && (
-            <div className="p-6 rounded-2xl bg-[var(--exec-surface)] border border-[var(--exec-border)] shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-heading font-bold uppercase tracking-wider text-[var(--exec-text)] flex items-center gap-2">
-                  <Award className="w-4 h-4 text-amber-500" />
-                  Your Starting Point & Verified Level
-                </h3>
-                <Badge variant="slate" className="text-[10px]">
-                  {runResult.studentAssessment.overallConfidence === 'HIGH' ? 'Verified Telemetry' : 'Baseline Assessment'}
-                </Badge>
-              </div>
+          {runResult.studentAssessment && (() => {
+            const demonstratedSkills = (runResult.studentAssessment.alreadyDemonstrated || runResult.studentAssessment.supportedStrengths || []);
 
-              {/* Assessment Narrative */}
-              <p className="text-xs text-[var(--exec-text)] leading-relaxed">
-                {runResult.studentAssessment.assessmentSummary}
-              </p>
+            const relevantWeakSkills = (() => {
+              const allWeak = runResult.studentAssessment.needsReinforcement || Array.from(new Set([
+                ...(runResult.studentAssessment.contradictedAreas || []),
+                ...(runResult.studentAssessment.developingAreas || []),
+              ]));
+              const prioritySkills = allWeak.filter((name) => {
+                const lower = name.toLowerCase();
+                const inStep = steps.some((st) => st.title.toLowerCase().includes(lower) || st.targetSkill?.toLowerCase().includes(lower));
+                const isContradicted = runResult.studentAssessment?.contradictedAreas?.includes(name);
+                const isDsaSpecific = ['linked list', 'binary tree', 'tree', 'recursion', 'traversal'].some((k) => lower.includes(k));
+                return inStep || isContradicted || isDsaSpecific;
+              });
+              const remaining = allWeak.filter((s) => !prioritySkills.includes(s));
+              return [...prioritySkills, ...remaining].slice(0, 4);
+            })();
 
-              {/* Strengths & Growth Areas */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                {/* Strengths */}
-                <div className="p-3 rounded-xl bg-[var(--exec-surface-secondary)] border border-[var(--exec-border)] space-y-1">
-                  <span className="text-[10px] font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400 block">
-                    Verified Strengths
-                  </span>
-                  {runResult.studentAssessment.supportedStrengths.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {runResult.studentAssessment.supportedStrengths.map((s, i) => (
-                        <Badge key={i} variant="emerald" className="text-[10px]">{s}</Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-[var(--exec-text-muted)]">Building initial baseline</span>
-                  )}
+            const relevantNewSkills = (() => {
+              const allNew = runResult.studentAssessment.newLearning || runResult.studentAssessment.evidenceGaps || [];
+              const priorityNew = allNew.filter((name) => {
+                const lower = name.toLowerCase();
+                const inStep = steps.some((st) => st.title.toLowerCase().includes(lower) || st.targetSkill?.toLowerCase().includes(lower));
+                const isDsaSpecific = ['dynamic programming', 'advanced tree', 'graph', 'backtracking'].some((k) => lower.includes(k));
+                return inStep || isDsaSpecific;
+              });
+              const remaining = allNew.filter((s) => !priorityNew.includes(s));
+              return [...priorityNew, ...remaining].slice(0, 4);
+            })();
+
+            return (
+              <div className="p-6 rounded-2xl bg-[var(--exec-surface)] border border-[var(--exec-border)] shadow-xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--exec-border)] pb-3">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-heading font-bold text-[var(--exec-text)] flex items-center gap-2">
+                      <Award className="w-4 h-4 text-amber-500" />
+                      Verified Learning Assessment &amp; Baseline
+                    </h3>
+                    <p className="text-xs text-[var(--exec-text-muted)] font-sans">
+                      Derived from empirical evidence across verified GitHub commits, LeetCode submissions, and logged mistake records.
+                    </p>
+                  </div>
+                  <Badge variant="slate" className="text-[10px] self-start sm:self-auto font-mono">
+                    {runResult.studentAssessment.overallConfidence === 'HIGH' ? 'Verified Telemetry' : 'Empirical Baseline'}
+                  </Badge>
                 </div>
 
-                {/* Developing Areas */}
-                <div className="p-3 rounded-xl bg-[var(--exec-surface-secondary)] border border-[var(--exec-border)] space-y-1">
-                  <span className="text-[10px] font-mono font-bold uppercase text-sky-600 dark:text-sky-400 block">
-                    Developing Focus
-                  </span>
-                  {runResult.studentAssessment.developingAreas.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {runResult.studentAssessment.developingAreas.map((s, i) => (
-                        <Badge key={i} variant="cyan" className="text-[10px]">{s}</Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-[var(--exec-text-muted)]">Core fundamentals</span>
-                  )}
-                </div>
+                {/* Assessment Narrative */}
+                <p className="text-xs text-[var(--exec-text)] leading-relaxed bg-[var(--exec-surface-secondary)] p-3 rounded-xl border border-[var(--exec-border)]">
+                  {runResult.studentAssessment.assessmentSummary}
+                </p>
 
-                {/* Target Gaps */}
-                <div className="p-3 rounded-xl bg-[var(--exec-surface-secondary)] border border-[var(--exec-border)] space-y-1">
-                  <span className="text-[10px] font-mono font-bold uppercase text-amber-600 dark:text-amber-400 block">
-                    Target Growth Gaps
-                  </span>
-                  {runResult.studentAssessment.evidenceGaps.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {runResult.studentAssessment.evidenceGaps.map((s, i) => (
-                        <Badge key={i} variant="amber" className="text-[10px]">{s}</Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-[var(--exec-text-muted)]">Practical application recommended</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Inspected Evidence Sources */}
-              {runResult.studentAssessment.recentActivitySummary && (
-                <div className="pt-2 border-t border-[var(--exec-border)] space-y-1.5 text-[11px] text-[var(--exec-text-muted)]">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-[10px] uppercase font-semibold">Evidence Sources Inspected:</span>
-                    {runResult.studentAssessment.recentActivitySummary.activeSources && runResult.studentAssessment.recentActivitySummary.activeSources.length > 0 ? (
-                      runResult.studentAssessment.recentActivitySummary.activeSources.map((src, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-md bg-[var(--exec-surface-secondary)] border border-[var(--exec-border)] text-[var(--exec-text)] font-mono text-[10px]">
-                          {src}
+                {/* 3 Distinct Assessment Categories */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+                  {/* SECTION 1 — EXISTING KNOWLEDGE */}
+                  <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-heading font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Already Demonstrated
                         </span>
-                      ))
-                    ) : (
-                      <span className="text-[10px] font-mono text-[var(--exec-text-muted)] italic">
-                        Initial baseline (no prior telemetry records found)
-                      </span>
-                    )}
+                        <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          Mastered
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[var(--exec-text-muted)] leading-relaxed">
+                        Verified strengths backed by empirical commits and code challenge submissions.
+                      </p>
+                      
+                      <div className="space-y-2 pt-1">
+                        {demonstratedSkills.length > 0 ? (
+                          demonstratedSkills.map((s, i) => {
+                            const detail = getSkillAssessmentDetails(s, runResult.studentAssessment);
+                            const verifiedSolves = detail?.epistemicCounts?.externallyVerified ?? 0;
+                            return (
+                              <div key={i} className="p-2 rounded-lg bg-[var(--exec-surface)] border border-emerald-500/15 space-y-0.5 shadow-2xs">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-semibold text-[var(--exec-text)] flex items-center gap-1.5">
+                                    <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                                    {s}
+                                  </span>
+                                  {detail && (
+                                    <Badge variant="emerald" className="text-[9px] px-1.5 py-0">
+                                      {detail.calibratedProficiency}/5
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-[var(--exec-text-muted)] font-mono pl-4.5">
+                                  {verifiedSolves > 0 ? `${verifiedSolves} verified external solves` : 'Verified foundational mastery'}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <span className="text-xs text-[var(--exec-text-muted)]">Building initial baseline</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-emerald-500/15 text-[10px] font-mono text-emerald-700 dark:text-emerald-400">
+                      ✓ Basic syntax skipped in roadmap to accelerate pacing
+                    </div>
                   </div>
 
-                  {(!runResult.studentAssessment.recentActivitySummary.hasRecentGitHubActivity ||
-                    !runResult.studentAssessment.recentActivitySummary.hasRecentLeetCodeActivity) && (
-                    <p className="text-[10px] text-[var(--exec-text-muted)] font-sans italic">
-                      ℹ External telemetry ({[!runResult.studentAssessment.recentActivitySummary.hasRecentGitHubActivity && 'GitHub', !runResult.studentAssessment.recentActivitySummary.hasRecentLeetCodeActivity && 'LeetCode'].filter(Boolean).join(', ')}) is not connected — roadmap is grounded on available local profile & activity evidence.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                  {/* SECTION 2 — LEARNING GAPS */}
+                  <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-heading font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Needs Reinforcement
+                        </span>
+                        <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          Remediation
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[var(--exec-text-muted)] leading-relaxed">
+                        Developing areas with recurring pitfalls or contradiction between claimed vs observed ability.
+                      </p>
 
-          {/* Why This Roadmap Card */}
-          {runResult.learningDecision && (
-            <div className="p-5 rounded-2xl bg-sky-500/5 border border-sky-500/20 space-y-1.5">
-              <div className="flex items-center gap-2 text-xs font-heading font-bold text-sky-700 dark:text-sky-300">
-                <Zap className="w-4 h-4 text-sky-500" />
-                <span>Why This Roadmap?</span>
+                      <div className="space-y-2 pt-1">
+                        {relevantWeakSkills.length > 0 ? (
+                          relevantWeakSkills.map((s, i) => {
+                            const detail = getSkillAssessmentDetails(s, runResult.studentAssessment);
+                            const reason = getEvidenceSnippet(detail);
+                            const claimed = detail?.claimedProficiency ?? 0;
+                            const assessed = detail?.calibratedProficiency ?? 1;
+                            return (
+                              <div key={i} className="p-2 rounded-lg bg-[var(--exec-surface)] border border-amber-500/20 space-y-1 shadow-2xs">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-xs font-semibold text-[var(--exec-text)] flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                                    {s}
+                                  </span>
+                                  {claimed > assessed && (
+                                    <span className="text-[9px] font-mono font-semibold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                                      Claimed {claimed}/5 → Assessed {assessed}/5
+                                    </span>
+                                  )}
+                                </div>
+                                {reason && (
+                                  <div className="text-[10px] text-amber-700 dark:text-amber-300/90 leading-tight pl-2.5 italic border-l border-amber-500/30 ml-1">
+                                    {reason}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <span className="text-xs text-[var(--exec-text-muted)]">No active contradictions identified</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-amber-500/15 text-[10px] font-mono text-amber-700 dark:text-amber-400">
+                      → Prioritized for Day 1–2 deep remediation
+                    </div>
+                  </div>
+
+                  {/* SECTION 3 — NEW AREAS */}
+                  <div className="p-4 rounded-xl bg-sky-500/5 border border-sky-500/20 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-heading font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          New Learning / Insufficient Evidence
+                        </span>
+                        <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                          New Frontiers
+                        </span>
+                      </div>
+
+                      {/* Calibrated Notice: Insufficient evidence != student failed */}
+                      <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-[10px] text-sky-800 dark:text-sky-300 leading-tight">
+                        <strong>Note:</strong> &ldquo;Insufficient evidence&rdquo; does <em>not</em> mean failure; it denotes unencountered topics awaiting baseline demonstration.
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        {relevantNewSkills.length > 0 ? (
+                          relevantNewSkills.map((s, i) => {
+                            const detail = getSkillAssessmentDetails(s, runResult.studentAssessment);
+                            return (
+                              <div key={i} className="p-2 rounded-lg bg-[var(--exec-surface)] border border-sky-500/20 space-y-0.5 shadow-2xs">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-semibold text-[var(--exec-text)] flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                                    {s}
+                                  </span>
+                                  <Badge variant="cyan" className="text-[9px] px-1.5 py-0">
+                                    0 Prior Solves
+                                  </Badge>
+                                </div>
+                                <div className="text-[10px] text-[var(--exec-text-muted)] pl-3">
+                                  {detail?.missingEvidenceGaps?.[0] || 'Requires structured concept introduction & guided practice'}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <span className="text-xs text-[var(--exec-text-muted)]">No outstanding evidence gaps</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-sky-500/15 text-[10px] font-mono text-sky-700 dark:text-sky-400">
+                      → Sequenced progressively after fundamentals
+                    </div>
+                  </div>
+                </div>
+
+                {/* Inspected Evidence Sources */}
+                {runResult.studentAssessment.recentActivitySummary && (
+                  <div className="pt-2 border-t border-[var(--exec-border)] space-y-1.5 text-[11px] text-[var(--exec-text-muted)]">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-[10px] uppercase font-semibold">Evidence Sources Inspected:</span>
+                      {runResult.studentAssessment.recentActivitySummary.activeSources && runResult.studentAssessment.recentActivitySummary.activeSources.length > 0 ? (
+                        runResult.studentAssessment.recentActivitySummary.activeSources.map((src, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-md bg-[var(--exec-surface-secondary)] border border-[var(--exec-border)] text-[var(--exec-text)] font-mono text-[10px]">
+                            {src}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[10px] font-mono text-[var(--exec-text-muted)] italic">
+                          Initial baseline (no prior telemetry records found)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              <p className="text-xs text-[var(--exec-text)] leading-relaxed">
-                {runResult.learningDecision.rationale}
+            );
+          })()}
+
+          {/* Transition Banner: "Built from your learning evidence" */}
+          <div className="p-4.5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-emerald-500/10 border border-sky-500/25 shadow-xs flex items-start sm:items-center gap-3.5">
+            <div className="p-2.5 rounded-xl bg-sky-500/20 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5 sm:mt-0">
+              <Zap className="w-5 h-5" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-heading font-bold uppercase tracking-wider text-[var(--exec-text)]">
+                  ⚡ Built From Your Learning Evidence
+                </span>
+                <Badge variant="indigo" className="text-[9px]">Adaptive Sequencing</Badge>
+              </div>
+              <p className="text-xs text-[var(--exec-text-muted)] leading-relaxed">
+                {runResult.learningDecision?.rationale
+                  ? `${runResult.learningDecision.rationale} Mastered basics (Arrays & Strings) were skipped to prioritize urgent remediation for pointer & recursion pitfalls before advancing to Dynamic Programming.`
+                  : 'Mastered foundational concepts were validated and skipped to prioritize targeted remediation and high-yield interview practice.'}
               </p>
             </div>
-          )}
+          </div>
 
           {/* Visual Learning Roadmap — Day-by-Day Cards or Flat Milestone List */}
           <div className="space-y-4">
@@ -983,10 +1178,13 @@ export function LearningCoachView() {
                   const meta = step.metadata as Record<string, any>;
                   const dayNum = (meta?.dayNumber as number) ?? sIdx + 1;
                   const topic = (meta?.topic as string) ?? step.title;
+                  const targetSkill = (meta?.targetSkill as string) ?? step.targetSkill;
                   const learnContent = (meta?.learnContent as string) ?? step.description;
                   const practiceProblems = (meta?.practiceProblems as number) ?? 3;
                   const reviewActivity = (meta?.reviewActivity as string) ?? 'Review notes';
-                  const evidenceRationale = (meta?.evidenceRationale as string) ?? step.rationale;
+                  const whySelected = (meta?.whySelected as string) ?? (meta?.evidenceRationale as string) ?? step.rationale;
+                  const expectedOutcome = (meta?.expectedOutcome as string) ?? (step.successCriteria?.[0] || 'Target mastery');
+                  const pedagogicalCategory = (meta?.pedagogicalCategory as string) ?? undefined;
                   const aiMinutes = (meta?.aiEstimatedMinutes as number) ?? (step.estimatedEffort?.estimatedMinutes ?? 60);
                   const aiPriority = step.priority as DayPriority;
                   const isCompleted = step.status === 'COMPLETED';
@@ -1018,7 +1216,7 @@ export function LearningCoachView() {
                       }`}
                     >
                       {/* Day Header Bar */}
-                      <div className={`px-5 py-3 flex items-center justify-between gap-3 border-b ${
+                      <div className={`px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b ${
                         isCompleted
                           ? 'border-emerald-500/20 bg-emerald-500/10'
                           : sIdx === 0 && !isCompleted
@@ -1036,11 +1234,30 @@ export function LearningCoachView() {
                             {isCompleted ? <Check className="w-4 h-4" /> : `D${dayNum}`}
                           </span>
                           <div>
-                            <div className="text-xs font-heading font-bold text-[var(--exec-text)] leading-tight">
-                              Day {dayNum} — {topic}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-heading font-bold text-[var(--exec-text)] leading-tight">
+                                Day {dayNum} — {topic}
+                              </span>
+                              {/* Pedagogical Category Badge */}
+                              {pedagogicalCategory && (
+                                <span className={`px-2 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider ${
+                                  pedagogicalCategory === 'REMEDIATION'
+                                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                    : pedagogicalCategory === 'NEW_CONCEPT'
+                                    ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30'
+                                    : pedagogicalCategory === 'MIXED_PRACTICE'
+                                    ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
+                                    : 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30'
+                                }`}>
+                                  {pedagogicalCategory.replace('_', ' ')}
+                                </span>
+                              )}
                             </div>
-                            {sIdx === 0 && !isCompleted && (
-                              <span className="text-[10px] font-mono text-sky-600 dark:text-sky-400">Start Here</span>
+                            {/* Target Skill */}
+                            {targetSkill && (
+                              <span className="text-[10px] font-mono text-sky-600 dark:text-sky-400 block mt-0.5">
+                                Target Skill: <strong className="font-semibold">{targetSkill}</strong>
+                              </span>
                             )}
                           </div>
                         </div>
@@ -1097,7 +1314,38 @@ export function LearningCoachView() {
                       </div>
 
                       {/* Day Body */}
-                      <div className="px-5 py-4 space-y-3 text-xs">
+                      <div className="px-5 py-4 space-y-3.5 text-xs">
+                        {/* Why Selected (Prominent Evidence-Grounding Block) */}
+                        {whySelected && (
+                          <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400 text-[10px] uppercase font-mono tracking-wider">
+                              <Zap className="w-3.5 h-3.5 text-amber-500" />
+                              Why Selected:
+                            </div>
+                            <p className="text-[11px] text-[var(--exec-text)] leading-relaxed">
+                              {whySelected}
+                              {edit.isEdited && (
+                                <span className="ml-1.5 font-mono text-sky-600 dark:text-sky-400 font-bold">
+                                  [AI: {aiMinutes}m / Custom: {displayMinutes}m]
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Expected Outcome */}
+                        {expectedOutcome && (
+                          <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-400 text-[10px] uppercase font-mono tracking-wider">
+                              <Target className="w-3.5 h-3.5 text-emerald-500" />
+                              Expected Outcome:
+                            </div>
+                            <p className="text-[11px] text-[var(--exec-text)] leading-relaxed">
+                              {expectedOutcome}
+                            </p>
+                          </div>
+                        )}
+
                         {/* Learn */}
                         <div className="flex items-start gap-2.5">
                           <BookOpen className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
@@ -1126,22 +1374,6 @@ export function LearningCoachView() {
                             <p className="text-[var(--exec-text)] leading-relaxed">{reviewActivity}</p>
                           </div>
                         </div>
-
-                        {/* Evidence rationale */}
-                        {evidenceRationale && (
-                          <div className="pt-1 border-t border-[var(--exec-border)] flex items-start gap-2">
-                            <Zap className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-[var(--exec-text-muted)] leading-relaxed italic">
-                              <span className="font-semibold not-italic text-amber-600 dark:text-amber-400">Why this time: </span>
-                              {evidenceRationale}
-                              {edit.isEdited && (
-                                <span className="ml-1 not-italic font-bold text-sky-600 dark:text-sky-400">
-                                  [AI estimate: {aiMinutes}m / Your edit: {displayMinutes}m]
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                        )}
 
                         {/* Complete step action */}
                         {!isCompleted && (

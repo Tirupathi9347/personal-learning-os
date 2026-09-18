@@ -3,6 +3,8 @@
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { MistakeCategory, MistakeSeverity, ProjectStatus, TaskPriority, TaskStatus, TimeSessionCategory } from '@/types';
+import fs from 'fs';
+import path from 'path';
 
 export interface SeedHistorySummary {
   success: boolean;
@@ -15,6 +17,7 @@ export interface SeedHistorySummary {
   notesCount: number;
   skillsCount: number;
   projectsCount: number;
+  evidenceLinksCount: number;
   dateRange: {
     startDate: string;
     endDate: string;
@@ -29,6 +32,7 @@ export interface ExistingHistoryStats {
   notesCount: number;
   skillsCount: number;
   projectsCount: number;
+  evidenceLinksCount: number;
   hasHistory: boolean;
 }
 
@@ -42,6 +46,7 @@ export interface ClearDemoHistoryResult {
     journalEntries: number;
     notes: number;
     projects: number;
+    evidenceLinks: number;
   };
 }
 
@@ -67,7 +72,7 @@ export async function getStudentLearningHistoryStats(explicitUserId?: string): P
       if (primary) effectiveUserId = primary.id;
     }
 
-    const [tasksRes, sessionsRes, mistakesRes, journalsRes, notesRes, skillsRes, projectsRes] = await Promise.all([
+    const [tasksRes, sessionsRes, mistakesRes, journalsRes, notesRes, skillsRes, projectsRes, linksRes] = await Promise.all([
       effectiveUserId 
         ? supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('user_id', effectiveUserId)
         : supabase.from('tasks').select('*', { count: 'exact', head: true }),
@@ -77,6 +82,7 @@ export async function getStudentLearningHistoryStats(explicitUserId?: string): P
       supabase.from('notes').select('*', { count: 'exact', head: true }),
       supabase.from('skills').select('*', { count: 'exact', head: true }),
       supabase.from('projects').select('*', { count: 'exact', head: true }),
+      supabase.from('evidence_links').select('*', { count: 'exact', head: true }),
     ]);
 
     const tasksCount = tasksRes.count || 0;
@@ -86,6 +92,7 @@ export async function getStudentLearningHistoryStats(explicitUserId?: string): P
     const notesCount = notesRes.count || 0;
     const skillsCount = skillsRes.count || 0;
     const projectsCount = projectsRes.count || 0;
+    const evidenceLinksCount = linksRes.count || 0;
 
     return {
       tasksCount,
@@ -95,6 +102,7 @@ export async function getStudentLearningHistoryStats(explicitUserId?: string): P
       notesCount,
       skillsCount,
       projectsCount,
+      evidenceLinksCount,
       hasHistory: timeSessionsCount > 0 || mistakesCount > 0 || tasksCount > 0,
     };
   } catch (err) {
@@ -107,14 +115,15 @@ export async function getStudentLearningHistoryStats(explicitUserId?: string): P
       notesCount: 0,
       skillsCount: 0,
       projectsCount: 0,
+      evidenceLinksCount: 0,
       hasHistory: false,
     };
   }
 }
 
 /**
- * Deterministic, idempotent seed of comprehensive student learning history (approx. 10-14 days).
- * Bound strictly to the authenticated user ID without modifying GitHub/LeetCode data.
+ * Deterministic, idempotent seed of comprehensive student learning history.
+ * Bound strictly to the authenticated user ID without modifying external GitHub/LeetCode tables.
  */
 export async function seedStudentLearningHistory(explicitUserId?: string): Promise<SeedHistorySummary> {
   const supabase = createServiceRoleClient();
@@ -145,12 +154,25 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
   // 0. Clean up invalid legacy test skill 'wecwecwrvv'
   await supabase.from('skills').delete().eq('name', 'wecwecwrvv');
 
-  // 1. SKILLS: B.Tech CSE learning profile with realistic varying proficiency (2 to 3 out of 5)
+  // 1. SKILLS: B.Tech CSE learning profile establishing:
+  // - ALREADY LEARNED: Programming Fundamentals, Python Fundamentals, Arrays, Strings, Basic Recursion
+  // - PARTIALLY LEARNED / WEAK: Linked Lists, Binary Trees, Tree Recursion & Traversal
+  // - NOT YET LEARNED: Advanced Tree Patterns, Dynamic Programming
   const desiredSkills = [
-    { name: 'Python', category: 'Programming Languages', proficiency_level: 3, target_level: 5 },
+    { name: 'Programming Fundamentals', category: 'Computer Science Core', proficiency_level: 4, target_level: 5 },
+    { name: 'Python Fundamentals', category: 'Programming Languages', proficiency_level: 4, target_level: 5 },
+    { name: 'Arrays', category: 'Algorithms & Data Structures', proficiency_level: 4, target_level: 5 },
+    { name: 'Strings', category: 'Algorithms & Data Structures', proficiency_level: 4, target_level: 5 },
+    { name: 'Basic Recursion', category: 'Algorithms & Data Structures', proficiency_level: 3, target_level: 5 },
+    { name: 'Linked Lists', category: 'Algorithms & Data Structures', proficiency_level: 3, target_level: 5 },
+    { name: 'Binary Trees', category: 'Algorithms & Data Structures', proficiency_level: 3, target_level: 5 },
+    { name: 'Tree Recursion & Traversal', category: 'Algorithms & Data Structures', proficiency_level: 3, target_level: 5 },
+    { name: 'Advanced Tree Patterns', category: 'Algorithms & Data Structures', proficiency_level: 1, target_level: 5 },
+    { name: 'Dynamic Programming', category: 'Algorithms & Data Structures', proficiency_level: 1, target_level: 5 },
+    { name: 'Data Structures & Algorithms', category: 'Algorithms & Data Structures', proficiency_level: 3, target_level: 5 },
+    { name: 'Python', category: 'Programming Languages', proficiency_level: 4, target_level: 5 },
     { name: 'Java', category: 'Programming Languages', proficiency_level: 2, target_level: 5 },
     { name: 'SQL & Relational Databases', category: 'Database & Backend', proficiency_level: 3, target_level: 5 },
-    { name: 'Data Structures & Algorithms', category: 'Algorithms & Data Structures', proficiency_level: 3, target_level: 5 },
     { name: 'Web Development', category: 'Web Development', proficiency_level: 3, target_level: 5 },
     { name: 'Operating Systems', category: 'Computer Science Core', proficiency_level: 2, target_level: 5 },
     { name: 'Computer Networks', category: 'Computer Science Core', proficiency_level: 2, target_level: 5 },
@@ -181,6 +203,29 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
         .single();
       if (created) skillMap[sk.name] = created.id;
     }
+  }
+
+  // 1b. STUDENT PROFILE: Authentic profile for Nalli Tirupathi (4th Year IT, MVGR College)
+  try {
+    await supabase.from('student_profiles').upsert({
+      user_id: targetUserId,
+      full_name: 'Nalli Tirupathi',
+      college: 'MVGR College of Engineering',
+      branch: 'Information Technology',
+      degree: 'B.Tech',
+      current_year: '4th Year',
+      graduation_year: 2026,
+      skills: desiredSkills.map((s) => s.name),
+      skill_proficiencies: desiredSkills.reduce((acc, s) => {
+        acc[s.name] = s.proficiency_level;
+        return acc;
+      }, {} as Record<string, number>),
+      career_target_roles: ['Software Development Engineer', 'Backend Engineer'],
+      learning_goals: ['Prepare DSA for technical interviews', 'Master Data Structures & Algorithms and system design fundamentals'],
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+  } catch (profErr) {
+    console.error('Student profile update notice:', profErr);
   }
 
   // 2. PROJECTS: 4 realistic B.Tech CSE learning projects
@@ -248,7 +293,7 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
 
   const defaultProjectId = projectMap['personal-learning-tracker-api'] || null;
 
-  // 3. TASKS: 24 realistic B.Tech CSE tasks
+  // 3. TASKS: 24 realistic B.Tech CSE tasks establishing consistent learning progression
   const seedTasks: Array<{
     idempotency_key: string;
     title: string;
@@ -260,7 +305,7 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     postponed_count: number;
     created_at: string;
   }> = [
-    // Completed tasks (12)
+    // Completed tasks (12) — Mastered Fundamentals & Arrays
     {
       idempotency_key: 'seed-task-01-python-functions',
       title: 'Review Python function arguments and variable scopes',
@@ -328,9 +373,9 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       created_at: '2026-09-09T14:00:00Z',
     },
     {
-      idempotency_key: 'seed-task-07-os-cpu-scheduling',
-      title: 'Study Operating System CPU Scheduling Algorithms',
-      description: 'Simulate First-Come-First-Served (FCFS), Round Robin, and Shortest Remaining Time First (SRTF).',
+      idempotency_key: 'seed-task-07-basic-recursion',
+      title: 'Implement recursive Fibonacci and factorial with call-stack analysis',
+      description: 'Trace recursive call tree on paper to verify induction steps and base-case termination.',
       status: 'completed',
       priority: 'medium',
       due_date: '2026-09-11',
@@ -361,11 +406,11 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       created_at: '2026-09-13T10:00:00Z',
     },
     {
-      idempotency_key: 'seed-task-10-ml-data-preprocessing',
-      title: 'Review Machine Learning feature scaling and categorical encoding',
-      description: 'Implement StandardScaler, MinMaxScaler, and OneHotEncoder on sample student dataset.',
+      idempotency_key: 'seed-task-10-string-manipulation',
+      title: 'Solve string anagram and non-repeating character problems',
+      description: 'Implement character frequency counter with hash tables and optimize lookup to O(N).',
       status: 'completed',
-      priority: 'low',
+      priority: 'medium',
       due_date: '2026-09-14',
       completed_at: '2026-09-14T21:30:00Z',
       postponed_count: 0,
@@ -394,20 +439,42 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       created_at: '2026-09-15T11:00:00Z',
     },
 
-    // In Progress tasks (5)
+    // In Progress tasks (5) — Highlight Weak/Unfinished Areas (Linked Lists & Trees)
     {
-      idempotency_key: 'seed-task-13-recursive-tree-traversal',
-      title: 'Implement recursive tree traversal and call-stack visualization',
-      description: 'Trace pre-order, in-order, and post-order depth-first recursion with explicit termination checks.',
+      idempotency_key: 'seed-task-13-linked-list-debugging',
+      title: 'Debug fast-and-slow pointer cycle detection and fix null dereference in Linked Lists',
+      description: 'Investigate AttributeError on fast.next when fast is null in Floyd cycle detection; write boundary assertions.',
       status: 'in_progress',
       priority: 'high',
       due_date: '2026-09-18',
       completed_at: null,
-      postponed_count: 0,
+      postponed_count: 1,
+      created_at: '2026-09-15T14:00:00Z',
+    },
+    {
+      idempotency_key: 'seed-task-14-recursive-tree-traversal',
+      title: 'Implement recursive tree traversal and fix base-case stack overflow in path sum',
+      description: 'Trace pre-order, in-order, and post-order depth-first recursion; add strict universal null node check.',
+      status: 'in_progress',
+      priority: 'high',
+      due_date: '2026-09-18',
+      completed_at: null,
+      postponed_count: 1,
       created_at: '2026-09-15T15:00:00Z',
     },
     {
-      idempotency_key: 'seed-task-14-postgresql-b-tree-indexing',
+      idempotency_key: 'seed-task-15-bst-operations',
+      title: 'Implement binary search tree insertion and delete node with subtree re-linking',
+      description: 'Resolve lost child updates during recursive node insertion by ensuring return values reassign node pointers.',
+      status: 'in_progress',
+      priority: 'high',
+      due_date: '2026-09-19',
+      completed_at: null,
+      postponed_count: 0,
+      created_at: '2026-09-16T10:00:00Z',
+    },
+    {
+      idempotency_key: 'seed-task-16-postgresql-b-tree-indexing',
       title: 'Benchmark PostgreSQL B-Tree vs Hash indexing on 100k row table',
       description: 'Run EXPLAIN ANALYZE on range queries and exact match filters to measure buffer hit ratio.',
       status: 'in_progress',
@@ -418,7 +485,7 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       created_at: '2026-09-14T08:00:00Z',
     },
     {
-      idempotency_key: 'seed-task-15-kv-store-consistent-hashing',
+      idempotency_key: 'seed-task-17-kv-store-consistent-hashing',
       title: 'Implement consistent hashing ring for distributed KV store',
       description: 'Build MD5 virtual node placement algorithm with replication factor of 3 in Java.',
       status: 'in_progress',
@@ -428,43 +495,43 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       postponed_count: 0,
       created_at: '2026-09-16T10:00:00Z',
     },
-    {
-      idempotency_key: 'seed-task-16-mistake-engine-remediation',
-      title: 'Review and remediate recurring SQL JOIN and NULL mistakes',
-      description: 'Write test assertions for all 3 recurring SQL pitfalls documented in the Mistake Engine.',
-      status: 'in_progress',
-      priority: 'high',
-      due_date: '2026-09-17',
-      completed_at: null,
-      postponed_count: 0,
-      created_at: '2026-09-16T14:00:00Z',
-    },
-    {
-      idempotency_key: 'seed-task-17-os-paging-virtual-memory',
-      title: 'Study Virtual Memory, Paging, and Page Replacement Algorithms',
-      description: 'Compare FIFO, LRU, and Optimal page replacement algorithms on reference memory strings.',
-      status: 'in_progress',
-      priority: 'medium',
-      due_date: '2026-09-19',
-      completed_at: null,
-      postponed_count: 0,
-      created_at: '2026-09-16T16:00:00Z',
-    },
 
-    // To Do tasks (7 - including overdue where due_date < 2026-09-17)
+    // To Do tasks (7) — Reflect Gaps (Advanced Trees & Dynamic Programming)
     {
-      idempotency_key: 'seed-task-18-dsa-recursion-practice-set',
-      title: 'Solve 5 divide-and-conquer recursion practice problems',
-      description: 'Focus on strict termination guards and non-overlapping subproblems (Merge Sort, Binary Search).',
+      idempotency_key: 'seed-task-18-advanced-trees-bfs-lca',
+      title: 'Study Level-Order BFS traversal and Lowest Common Ancestor (LCA) tree patterns',
+      description: 'Implement queue-based BFS level-order iteration and post-order bottom-up LCA evaluation.',
       status: 'todo',
       priority: 'high',
-      due_date: '2026-09-19',
+      due_date: '2026-09-20',
       completed_at: null,
       postponed_count: 0,
       created_at: '2026-09-16T11:00:00Z',
     },
     {
-      idempotency_key: 'seed-task-19-overdue-dbms-transaction-acid',
+      idempotency_key: 'seed-task-19-dp-1d-memoization',
+      title: 'Learn 1D Dynamic Programming foundations: memoization vs tabulation on Climbing Stairs and Coin Change',
+      description: 'Formulate state transition recurrence relations, define base-case array initialization, and measure speedup.',
+      status: 'todo',
+      priority: 'high',
+      due_date: '2026-09-21',
+      completed_at: null,
+      postponed_count: 0,
+      created_at: '2026-09-17T08:00:00Z',
+    },
+    {
+      idempotency_key: 'seed-task-20-dp-2d-knapsack',
+      title: 'Study 2D Dynamic Programming: grid paths with obstacles and 0/1 Knapsack',
+      description: 'Work through grid DP state table construction and analyze auxiliary space reduction from O(M*N) to O(N).',
+      status: 'todo',
+      priority: 'high',
+      due_date: '2026-09-22',
+      completed_at: null,
+      postponed_count: 0,
+      created_at: '2026-09-17T08:30:00Z',
+    },
+    {
+      idempotency_key: 'seed-task-21-overdue-dbms-transaction-acid',
       title: 'Revise ACID transaction isolation levels in PostgreSQL',
       description: 'Inspect Dirty Reads, Non-Repeatable Reads, and Phantom Reads across Read Committed and Serializable.',
       status: 'todo',
@@ -475,55 +542,33 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       created_at: '2026-09-13T09:00:00Z',
     },
     {
-      idempotency_key: 'seed-task-20-python-interview-qa-prep',
+      idempotency_key: 'seed-task-22-python-interview-qa-prep',
       title: 'Prepare technical interview questions for SQL & Python',
       description: 'Summarize GIL, memory allocator, generator expressions, and ACID properties for mock interview.',
       status: 'todo',
       priority: 'medium',
-      due_date: '2026-09-21',
-      completed_at: null,
-      postponed_count: 0,
-      created_at: '2026-09-17T08:00:00Z',
-    },
-    {
-      idempotency_key: 'seed-task-21-fastapi-jwt-auth-middleware',
-      title: 'Add JWT authorization middleware to Learning Tracker API',
-      description: 'Implement bearer token extraction and dependency injection in FastAPI routers.',
-      status: 'todo',
-      priority: 'medium',
-      due_date: '2026-09-22',
-      completed_at: null,
-      postponed_count: 0,
-      created_at: '2026-09-17T08:30:00Z',
-    },
-    {
-      idempotency_key: 'seed-task-22-networks-subnetting-cidr',
-      title: 'Practice IP subnetting, VLSM, and CIDR notation calculations',
-      description: 'Calculate usable host addresses, subnet masks, and broadcast IPs for classless networks.',
-      status: 'todo',
-      priority: 'low',
       due_date: '2026-09-23',
       completed_at: null,
       postponed_count: 0,
       created_at: '2026-09-17T09:00:00Z',
     },
     {
-      idempotency_key: 'seed-task-23-ml-logistic-regression-math',
-      title: 'Derive cost function and gradient descent update for Logistic Regression',
-      description: 'Work through sigmoid activation, cross-entropy loss formula, and decision boundary calculus.',
+      idempotency_key: 'seed-task-23-fastapi-jwt-auth-middleware',
+      title: 'Add JWT authorization middleware to Learning Tracker API',
+      description: 'Implement bearer token extraction and dependency injection in FastAPI routers.',
       status: 'todo',
-      priority: 'low',
+      priority: 'medium',
       due_date: '2026-09-24',
       completed_at: null,
       postponed_count: 0,
       created_at: '2026-09-17T09:15:00Z',
     },
     {
-      idempotency_key: 'seed-task-24-trading-backtester-design',
-      title: 'Draft architecture diagram for Algorithmic Trading Backtester',
-      description: 'Define EventQueue, DataHandler, Strategy, Portfolio, and ExecutionHandler class interfaces.',
+      idempotency_key: 'seed-task-24-networks-subnetting-cidr',
+      title: 'Practice IP subnetting, VLSM, and CIDR notation calculations',
+      description: 'Calculate usable host addresses, subnet masks, and broadcast IPs for classless networks.',
       status: 'todo',
-      priority: 'medium',
+      priority: 'low',
       due_date: '2026-09-25',
       completed_at: null,
       postponed_count: 0,
@@ -559,7 +604,12 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     }
   }
 
-  // 4. MISTAKES: 10 meaningful mistakes in supported categories and valid severities
+  // 4. MISTAKES: 12 meaningful mistakes in supported categories and valid severities
+  // Explicitly establishes:
+  // - Linked Lists is weak due to fast/slow pointer null dereference
+  // - Binary Trees is weak due to recursion missing base-case stack overflow
+  // - Tree Recursion & Traversal is weak due to lost subtree updates
+  // - Arrays had a minor boundary error but was overcome
   const seedMistakes: Array<{
     title: string;
     category: MistakeCategory;
@@ -570,6 +620,46 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     skill_name: string;
     created_at: string;
   }> = [
+    {
+      title: 'Null pointer dereference during fast-and-slow pointer cycle detection',
+      category: 'Syntax/Logic',
+      root_cause: 'In Floyd cycle detection loop, evaluated while fast.next != None without verifying fast != None first, causing AttributeError on odd-length lists.',
+      solution: 'Condition loop with while fast and fast.next: before advancing fast = fast.next.next.',
+      prevention_rule: 'For two-pointer steps of size 2, always verify both fast and fast.next are non-null before dereferencing.',
+      severity: 'high',
+      skill_name: 'Linked Lists',
+      created_at: '2026-09-14T15:30:00Z',
+    },
+    {
+      title: 'Recursion missing base-case causing stack overflow in tree path sum',
+      category: 'Syntax/Logic',
+      root_cause: 'Recursive tree traversal failed to check if node is None before dereferencing node.left and node.right in hasPathSum.',
+      solution: 'Add strict universal guard clause at top of recursion: if not node: return False.',
+      prevention_rule: 'Always write and test terminating base case (if not root) before evaluating child node properties in recursive tree functions.',
+      severity: 'critical',
+      skill_name: 'Binary Trees',
+      created_at: '2026-09-15T16:30:00Z',
+    },
+    {
+      title: 'Lost subtree references during binary search tree node insertion',
+      category: 'Syntax/Logic',
+      root_cause: 'Recursive helper did not return updated root or assign node.left = insert(node.left, val), leading to orphaned subtrees.',
+      solution: 'Reassign return values of recursive calls to node.left and node.right to maintain tree connectivity.',
+      prevention_rule: 'In functional tree recursion, always assign node.left / node.right = recursiveCall(child) and return node at the end.',
+      severity: 'medium',
+      skill_name: 'Tree Recursion & Traversal',
+      created_at: '2026-09-16T15:00:00Z',
+    },
+    {
+      title: 'Off-by-one boundary error in binary search lower_bound',
+      category: 'Syntax/Logic',
+      root_cause: 'Used right = len(nums) with while left <= right, causing IndexError when target exceeded maximum element.',
+      solution: 'Maintain invariant: while left < right with right = mid when nums[mid] >= target.',
+      prevention_rule: 'Carefully define search interval [left, right) and ensure updates maintain loop termination.',
+      severity: 'medium',
+      skill_name: 'Arrays',
+      created_at: '2026-09-10T16:45:00Z',
+    },
     {
       title: 'SQL JOIN Cartesian explosion due to missing ON condition',
       category: 'Database',
@@ -607,28 +697,8 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       solution: 'Use items=None in function signature, and initialize items = [] inside function body.',
       prevention_rule: 'Never use mutable values (list, dict, set) as default parameter values in Python.',
       severity: 'low',
-      skill_name: 'Python',
+      skill_name: 'Python Fundamentals',
       created_at: '2026-09-05T16:00:00Z',
-    },
-    {
-      title: 'Recursion missing base-case causing stack overflow',
-      category: 'Syntax/Logic',
-      root_cause: 'Recursive tree traversal failed to check if node is None before dereferencing node.left.',
-      solution: 'Add strict guard clause at top of recursion: if not node: return.',
-      prevention_rule: 'Always write and test terminating base case before writing recursive calls.',
-      severity: 'critical',
-      skill_name: 'Data Structures & Algorithms',
-      created_at: '2026-09-15T16:30:00Z',
-    },
-    {
-      title: 'Off-by-one boundary error in binary search lower_bound',
-      category: 'Syntax/Logic',
-      root_cause: 'Used right = len(nums) with while left <= right, causing IndexError when target exceeded maximum element.',
-      solution: 'Maintain invariant: while left < right with right = mid when nums[mid] >= target.',
-      prevention_rule: 'Carefully define search interval [left, right) and ensure updates maintain loop termination.',
-      severity: 'medium',
-      skill_name: 'Data Structures & Algorithms',
-      created_at: '2026-09-10T16:45:00Z',
     },
     {
       title: 'Java variable shadowing instead of method overriding in subclass',
@@ -672,6 +742,7 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     },
   ];
 
+  const mistakeIdMap: Record<string, string> = {};
   for (const m of seedMistakes) {
     const { data: existing } = await supabase
       .from('mistakes')
@@ -692,12 +763,16 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
 
     if (existing) {
       await supabase.from('mistakes').update(mistakePayload).eq('id', existing.id);
+      mistakeIdMap[m.title] = existing.id;
     } else {
-      await supabase.from('mistakes').insert(mistakePayload);
+      const { data: created } = await supabase.from('mistakes').insert(mistakePayload).select('id').single();
+      if (created) mistakeIdMap[m.title] = created.id;
     }
   }
 
-  // 5. TIME SESSIONS: 16 realistic study sessions across 10-14 days (durations: 35m to 120m)
+  // 5. TIME SESSIONS: 17 realistic study sessions across 14 days (durations: 35m to 120m)
+  // Reflects significant focus on Arrays & Strings (mastered), struggle on Linked Lists & Trees (weak),
+  // and ZERO minutes on Dynamic Programming (gap).
   const seedSessions: Array<{
     category: TimeSessionCategory;
     duration_minutes: number;
@@ -712,18 +787,18 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     {
       category: 'Coding',
       duration_minutes: 60,
-      description: 'Reviewed Python function parameter rules and variable scopes. [seed-session:01]',
+      description: 'Reviewed Python function parameter rules, LEGB scopes, and default argument memory retention.',
       session_date: '2026-09-04',
       task_key: 'seed-task-01-python-functions',
       project_slug: 'personal-learning-tracker-api',
-      skill_name: 'Python',
+      skill_name: 'Python Fundamentals',
       started_at: '2026-09-04T10:00:00Z',
       ended_at: '2026-09-04T11:00:00Z',
     },
     {
       category: 'Coding',
       duration_minutes: 90,
-      description: 'Practiced SQL complex INNER and LEFT joins in PostgreSQL. [seed-session:02]',
+      description: 'Practiced SQL complex INNER and LEFT joins in PostgreSQL across relational schemas.',
       session_date: '2026-09-05',
       task_key: 'seed-task-02-sql-joins',
       skill_name: 'SQL & Relational Databases',
@@ -733,7 +808,7 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     {
       category: 'Project',
       duration_minutes: 120,
-      description: 'Finalized Campus Event Portal JWT auth & role guards. [seed-session:03]',
+      description: 'Finalized Campus Event Portal JWT auth & role guards in Next.js.',
       session_date: '2026-09-06',
       task_key: 'seed-task-04-campus-portal-milestone',
       project_slug: 'campus-event-management-portal',
@@ -744,17 +819,17 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     {
       category: 'Practice',
       duration_minutes: 75,
-      description: 'Two-pointer sliding window array problem solving session. [seed-session:04]',
+      description: 'Two-pointer sliding window array problem solving: Maximum Average Subarray & Longest Substring.',
       session_date: '2026-09-07',
       task_key: 'seed-task-03-sliding-window',
-      skill_name: 'Data Structures & Algorithms',
+      skill_name: 'Arrays',
       started_at: '2026-09-07T16:00:00Z',
       ended_at: '2026-09-07T17:15:00Z',
     },
     {
       category: 'Learning',
       duration_minutes: 90,
-      description: 'Deep dive into relational database normalization and BCNF. [seed-session:05]',
+      description: 'Deep dive into relational database normalization: functional dependencies, 3NF, and BCNF.',
       session_date: '2026-09-08',
       task_key: 'seed-task-05-dbms-normalization',
       skill_name: 'Database Management Systems',
@@ -764,17 +839,17 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     {
       category: 'Practice',
       duration_minutes: 60,
-      description: 'Binary search lower_bound and boundary condition tests. [seed-session:06]',
+      description: 'Binary search lower_bound and boundary condition tests on sorted arrays.',
       session_date: '2026-09-09',
       task_key: 'seed-task-06-binary-search',
-      skill_name: 'Data Structures & Algorithms',
+      skill_name: 'Arrays',
       started_at: '2026-09-09T15:00:00Z',
       ended_at: '2026-09-09T16:00:00Z',
     },
     {
       category: 'Learning',
       duration_minutes: 75,
-      description: 'CPU Scheduling simulation: Round Robin vs Shortest Job First. [seed-session:07]',
+      description: 'CPU Scheduling simulation: Round Robin vs Shortest Job First with turnaround time metrics.',
       session_date: '2026-09-10',
       task_key: 'seed-task-07-os-cpu-scheduling',
       skill_name: 'Operating Systems',
@@ -782,9 +857,19 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       ended_at: '2026-09-10T15:15:00Z',
     },
     {
+      category: 'Practice',
+      duration_minutes: 45,
+      description: 'Basic recursion exercises: Fibonacci number and call stack depth analysis.',
+      session_date: '2026-09-11',
+      task_key: 'seed-task-07-basic-recursion',
+      skill_name: 'Basic Recursion',
+      started_at: '2026-09-11T11:00:00Z',
+      ended_at: '2026-09-11T11:45:00Z',
+    },
+    {
       category: 'Project',
       duration_minutes: 90,
-      description: 'Implemented FastAPI CRUD endpoints for study session logging. [seed-session:08]',
+      description: 'Implemented FastAPI CRUD endpoints for study session logging and Pydantic validation.',
       session_date: '2026-09-11',
       task_key: 'seed-task-08-fastapi-crud-endpoints',
       project_slug: 'personal-learning-tracker-api',
@@ -792,11 +877,10 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       started_at: '2026-09-11T16:00:00Z',
       ended_at: '2026-09-11T17:30:00Z',
     },
-    // Note: 2026-09-12 is intentional low-activity / rest day (35m quick review)
     {
       category: 'Research',
       duration_minutes: 35,
-      description: 'Quick read on Distributed KV store architecture and gossip protocol. [seed-session:09]',
+      description: 'Quick architectural read on Distributed Key-Value store gossip protocols and hash rings.',
       session_date: '2026-09-12',
       skill_name: 'Java',
       started_at: '2026-09-12T19:00:00Z',
@@ -805,7 +889,7 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     {
       category: 'Coding',
       duration_minutes: 60,
-      description: 'Java OOP polymorphism and geometric shape hierarchy exercises. [seed-session:10]',
+      description: 'Java OOP polymorphism and geometric shape hierarchy inheritance exercises.',
       session_date: '2026-09-13',
       task_key: 'seed-task-09-java-oop-inheritance',
       skill_name: 'Java',
@@ -813,39 +897,49 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
       ended_at: '2026-09-13T11:00:00Z',
     },
     {
-      category: 'Learning',
-      duration_minutes: 45,
-      description: 'Machine learning feature scaling and categorical encoding. [seed-session:11]',
+      category: 'Practice',
+      duration_minutes: 60,
+      description: 'String manipulation exercises: Valid Anagram and First Unique Character using hash tables.',
       session_date: '2026-09-14',
-      task_key: 'seed-task-10-ml-data-preprocessing',
-      skill_name: 'Machine Learning',
-      started_at: '2026-09-14T15:00:00Z',
-      ended_at: '2026-09-14T15:45:00Z',
+      task_key: 'seed-task-10-string-manipulation',
+      skill_name: 'Strings',
+      started_at: '2026-09-14T11:00:00Z',
+      ended_at: '2026-09-14T12:00:00Z',
     },
     {
       category: 'Practice',
-      duration_minutes: 60,
-      description: 'Debugged SQL multi-table aggregation and resolved HAVING clause mistakes. [seed-session:12]',
+      duration_minutes: 75,
+      description: 'Linked list pointer traversal and debugging fast-and-slow cycle detection null exceptions.',
       session_date: '2026-09-14',
-      task_key: 'seed-task-11-sql-aggregation-debug',
-      skill_name: 'SQL & Relational Databases',
-      started_at: '2026-09-14T17:00:00Z',
-      ended_at: '2026-09-14T18:00:00Z',
+      task_key: 'seed-task-13-linked-list-debugging',
+      skill_name: 'Linked Lists',
+      started_at: '2026-09-14T15:00:00Z',
+      ended_at: '2026-09-14T16:15:00Z',
     },
     {
       category: 'Coding',
       duration_minutes: 75,
-      description: 'Recursive tree traversal and call-stack visualization. [seed-session:13]',
+      description: 'Recursive binary tree traversal: encountered stack overflow in path sum, working on base-case guard.',
       session_date: '2026-09-15',
-      task_key: 'seed-task-13-recursive-tree-traversal',
-      skill_name: 'Data Structures & Algorithms',
+      task_key: 'seed-task-14-recursive-tree-traversal',
+      skill_name: 'Binary Trees',
       started_at: '2026-09-15T15:00:00Z',
       ended_at: '2026-09-15T16:15:00Z',
     },
     {
+      category: 'Practice',
+      duration_minutes: 60,
+      description: 'Binary Search Tree node insertion and subtree link retention tracing.',
+      session_date: '2026-09-16',
+      task_key: 'seed-task-15-bst-operations',
+      skill_name: 'Tree Recursion & Traversal',
+      started_at: '2026-09-16T09:30:00Z',
+      ended_at: '2026-09-16T10:30:00Z',
+    },
+    {
       category: 'Learning',
       duration_minutes: 45,
-      description: 'Computer Networks TCP 3-way handshake and packet flow analysis. [seed-session:14]',
+      description: 'Computer Networks TCP 3-way handshake and packet flow analysis in Wireshark.',
       session_date: '2026-09-16',
       task_key: 'seed-task-12-networks-tcp-handshake',
       skill_name: 'Computer Networks',
@@ -854,27 +948,16 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     },
     {
       category: 'Practice',
-      duration_minutes: 90,
-      description: 'Consistent hashing ring implementation in Java for KV store. [seed-session:15]',
-      session_date: '2026-09-16',
-      task_key: 'seed-task-15-kv-store-consistent-hashing',
-      project_slug: 'distributed-kv-store-prototype',
-      skill_name: 'Java',
-      started_at: '2026-09-16T16:00:00Z',
-      ended_at: '2026-09-16T17:30:00Z',
-    },
-    {
-      category: 'Practice',
       duration_minutes: 60,
-      description: 'Mistake engine review: SQL JOINs, recursion termination, and indexing. [seed-session:16]',
+      description: 'Reviewing recurring mistake patterns across SQL JOINs, recursion termination, and tree traversals.',
       session_date: '2026-09-17',
-      task_key: 'seed-task-16-mistake-engine-remediation',
-      skill_name: 'SQL & Relational Databases',
+      skill_name: 'Data Structures & Algorithms',
       started_at: '2026-09-17T08:00:00Z',
       ended_at: '2026-09-17T09:00:00Z',
     },
   ];
 
+  const sessionIdMap: Record<string, string> = {};
   for (const s of seedSessions) {
     const { data: existing } = await supabase
       .from('time_sessions')
@@ -896,19 +979,21 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
 
     if (existing) {
       await supabase.from('time_sessions').update(sessionPayload).eq('id', existing.id);
+      sessionIdMap[s.description] = existing.id;
     } else {
-      await supabase.from('time_sessions').insert(sessionPayload);
+      const { data: created } = await supabase.from('time_sessions').insert(sessionPayload).select('id').single();
+      if (created) sessionIdMap[s.description] = created.id;
     }
   }
 
-  // 6. JOURNAL ENTRIES: 10 realistic daily learning logs
+  // 6. JOURNAL ENTRIES: 10 realistic daily learning logs written in authentic B.Tech student voice
   const seedJournals = [
     {
       entry_date: '2026-09-04',
-      raw_content: 'Started revising Python fundamentals. Reviewed positional vs keyword arguments and variable scopes. Discovered why mutable default parameters in function definitions can create insidious state leaks.',
-      summary: 'Reviewed Python function parameter rules and default argument pitfall.',
+      raw_content: 'Started revising Python fundamentals today. Focused on positional vs keyword arguments and variable scopes. Discovered why mutable default parameters in function definitions can cause subtle state leakage across invocations.',
+      summary: 'Reviewed Python function parameter rules and default argument memory pitfall.',
       learning_summary: 'Mastered LEGB scoping rules and avoided mutable defaults in Python functions.',
-      reflection: 'Python language fundamentals have subtleties that matter when writing robust libraries.',
+      reflection: 'Language fundamentals have subtleties that matter when writing clean backend services.',
       tomorrow_plan: 'Practice multi-table SQL joins and verify query execution orders.',
       time_spent_minutes: 60,
     },
@@ -932,10 +1017,10 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     },
     {
       entry_date: '2026-09-07',
-      raw_content: 'Focused session on two-pointer sliding window problems. Solved 2 medium problems on subarray maximum and substring without repeating characters. Feeling much more confident with array boundaries.',
+      raw_content: 'Focused session on two-pointer sliding window problems. Solved 2 medium problems on subarray maximum and substring without repeating characters. Feeling very confident with array boundaries and two-sum patterns.',
       summary: 'Two-pointer sliding window problem practice.',
       learning_summary: 'Implemented two-pointer boundary checks without index out of range exceptions.',
-      reflection: 'Consistent practice makes boundary invariants natural.',
+      reflection: 'Consistent practice makes array boundary invariants natural.',
       tomorrow_plan: 'Review relational database normalization.',
       time_spent_minutes: 75,
     },
@@ -950,48 +1035,48 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     },
     {
       entry_date: '2026-09-09',
-      raw_content: 'Practiced binary search variations. Encountered an off-by-one error when setting right boundary in lower_bound search. Fixed it by adopting the half-open interval invariant [left, right).',
+      raw_content: 'Practiced binary search variations. Encountered an off-by-one error when setting right boundary in lower_bound search. Fixed it by adopting the half-open interval invariant [left, right). Now binary search feels rock solid.',
       summary: 'Binary search boundary conditions and lower_bound implementation.',
       learning_summary: 'Standardized on [left, right) interval to avoid off-by-one errors in binary search.',
       reflection: 'Choosing a clear mathematical invariant makes edge cases trivial.',
-      tomorrow_plan: 'Study operating system CPU scheduling algorithms.',
+      tomorrow_plan: 'Study operating system CPU scheduling algorithms and basic recursion.',
       time_spent_minutes: 60,
     },
     {
-      entry_date: '2026-09-10',
-      raw_content: 'Studied Operating System CPU scheduling: FCFS, Round Robin, and Shortest Remaining Time First. Simulated waiting times and turnaround times under varying burst lengths.',
-      summary: 'Simulated CPU scheduling algorithms and compared turnaround times.',
-      learning_summary: 'Analyzed CPU utilization vs average waiting time tradeoffs in preemptive scheduling.',
-      reflection: 'Operating systems concepts make high-concurrency backend programming intuitive.',
-      tomorrow_plan: 'Build FastAPI study session endpoints for the Learning Tracker API.',
-      time_spent_minutes: 75,
-    },
-    {
       entry_date: '2026-09-11',
-      raw_content: 'Built FastAPI CRUD endpoints for study session logging. Tested endpoint response models with Pydantic. Fixed an unhandled 422 validation error by adding default values to optional fields.',
-      summary: 'FastAPI study session logging endpoints and Pydantic validation.',
-      learning_summary: 'Defined clean schemas and optional field defaults in FastAPI services.',
-      reflection: 'Strict API contracts eliminate subtle runtime client bugs.',
-      tomorrow_plan: 'Rest day tomorrow with light architectural reading.',
-      time_spent_minutes: 90,
+      raw_content: 'Reviewed basic recursion with Fibonacci numbers and call stack visualization. The inductive step is clear for linear recursion. Built FastAPI CRUD endpoints in the afternoon for session tracking.',
+      summary: 'Basic recursion tracing and FastAPI CRUD endpoint implementation.',
+      learning_summary: 'Traced recursive call stacks and defined Pydantic payload models.',
+      reflection: 'Linear recursion is straightforward, but I need to make sure I practice tree recursion next.',
+      tomorrow_plan: 'Java OOP polymorphism practice and string hashing.',
+      time_spent_minutes: 135,
     },
     {
       entry_date: '2026-09-14',
-      raw_content: 'Java OOP session on polymorphism and abstract classes. Built a geometric shape calculation hierarchy. Also debugged SQL GROUP BY queries where non-aggregated columns were missing.',
-      summary: 'Java OOP polymorphism practice and SQL GROUP BY troubleshooting.',
-      learning_summary: 'Used @Override annotations to catch field shadowing and corrected SQL GROUP BY queries.',
-      reflection: 'Compiler checks and strict SQL standards save time when adhered to consistently.',
-      tomorrow_plan: 'Dive into recursive tree traversal and call-stack visualization.',
-      time_spent_minutes: 105,
+      raw_content: 'Practiced string anagrams and solved LeetCode Valid Anagram easily. But when I switched to Linked Lists, I ran into a bad bug with fast and slow pointers. Evaluated fast.next without checking if fast was null, getting an AttributeError. Need to revisit pointer invariants.',
+      summary: 'Solved string anagrams; struggled with pointer null dereference in Linked List cycle detection.',
+      learning_summary: 'Understood need for double null guard (while fast and fast.next) in two-pointer linked list traversals.',
+      reflection: 'Linked list pointer bugs happen so easily when fast pointer advances by two steps.',
+      tomorrow_plan: 'Dive into binary tree traversal and path sum problems.',
+      time_spent_minutes: 135,
+    },
+    {
+      entry_date: '2026-09-15',
+      raw_content: 'Tried implementing recursive path sum on binary trees and hit a critical stack overflow! I forgot to put a base check for None before dereferencing node.left. It crashed on empty tree test cases. Binary tree recursion requires extra discipline with termination conditions.',
+      summary: 'Hit recursive stack overflow on binary tree path sum due to missing null base-case.',
+      learning_summary: 'Universal rule: always write "if not node: return" as the first line of any tree traversal function.',
+      reflection: 'Tree recursion feels much harder than linear recursion. Still feel unconfident with tree traversals.',
+      tomorrow_plan: 'BST node operations and mistake engine review.',
+      time_spent_minutes: 75,
     },
     {
       entry_date: '2026-09-16',
-      raw_content: 'Deep dive into recurring mistakes in SQL and DSA. Noticed a pattern of NULL pitfalls in NOT IN subqueries, as well as recursion termination bugs. Traced TCP 3-way handshake in Wireshark.',
-      summary: 'Mistake engine pattern review and Computer Networks TCP analysis.',
-      learning_summary: 'Documented prevention rules for SQL NULL handling and verified TCP handshake states.',
-      reflection: 'Reviewing past mistakes turns repetitive debugging into permanent mastery.',
-      tomorrow_plan: 'Prepare interview questions and continue consistent hashing prototype.',
-      time_spent_minutes: 135,
+      raw_content: 'Reviewed my mistake log today. I am solid on Arrays, Strings, and basic Python, but Linked Lists and Binary Trees have clear error patterns. Also, I have not even touched Dynamic Programming yet. If technical interview questions ask 2D DP or tree diameter, I will be stuck. Need a structured roadmap focusing on these exact gaps.',
+      summary: 'Mistake audit: mastered Arrays/Strings, weak on Linked Lists/Trees, gap in Dynamic Programming.',
+      learning_summary: 'Identified that DP and tree patterns are the critical missing pieces before campus placement interviews.',
+      reflection: 'Self-auditing telemetry makes my actual gaps obvious instead of assuming I know everything.',
+      tomorrow_plan: 'Ask PLOS for an interview preparation roadmap focused on my weak spots and gaps.',
+      time_spent_minutes: 105,
     },
   ];
 
@@ -999,76 +1084,77 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     await supabase.from('journal_entries').upsert(j, { onConflict: 'entry_date' });
   }
 
-  // 7. NOTES: 10 high-value knowledge base notes with 'demo-seed' tag
+  // 7. NOTES: 10 high-value knowledge base notes written in authentic student voice
+  // Notice: Clear absence of notes on Dynamic Programming and Advanced Trees (reinforcing NOT YET LEARNED).
   const seedNotes = [
     {
-      title: 'SQL Joins & Execution Order Mental Model',
-      content: '### SQL Query Logical Execution Order\n1. `FROM` & `JOIN` (constructs Cartesian product, then applies `ON` conditions)\n2. `WHERE` (filters rows *before* aggregation)\n3. `GROUP BY` (groups records by specified non-aggregate expressions)\n4. `HAVING` (filters grouped rows *after* aggregation)\n5. `SELECT` (evaluates expressions, aliases, and window functions)\n6. `DISTINCT` (eliminates duplicate rows)\n7. `ORDER BY` (sorts the final projected dataset)\n8. `LIMIT` / `OFFSET` (paginates results)\n\n**Crucial Rule:** In `LEFT JOIN`, putting conditions in the `WHERE` clause can silently eliminate unmatched left rows or convert the join into an `INNER JOIN`. Always place inter-table relationship filters in `ON`.',
-      category: 'SQL & Databases',
-      tags: ['demo-seed', 'sql', 'database', 'joins', 'query-optimization'],
+      title: 'Binary Search Boundary Conditions & Invariants',
+      content: '### Standard Interval Invariant: [left, right)\nUsing the half-open interval `[left, right)` prevents infinite loops and off-by-one errors:\n```python\ndef lower_bound(nums: list[int], target: int) -> int:\n    left = 0\n    right = len(nums)\n    while left < right:\n        mid = left + (right - left) // 2\n        if nums[mid] >= target:\n            right = mid\n        else:\n            left = mid + 1\n    return left\n```\n- If `target` is present, returns the first index of `target`.\n- If `target` is absent, returns the insertion index maintaining sorted order.',
+      category: 'Algorithms & Data Structures',
+      tags: ['algorithms', 'binary-search', 'arrays', 'dsa'],
       project_id: defaultProjectId,
     },
     {
-      title: 'Python Functions & Scope Reference (LEGB)',
-      content: '### Variable Lookup Hierarchy (LEGB Rule)\n- **L (Local):** Names assigned within a function body.\n- **E (Enclosing):** Names in the local scope of any enclosing functions (closures).\n- **G (Global):** Names assigned at the top-level of the module file.\n- **B (Built-in):** Predefined built-in names (`range`, `len`, `Exception`).\n\n### The Mutable Default Parameter Trap\nPython evaluates default parameter values **once**, when the function definition is parsed.\n```python\n# Anti-pattern\ndef append_to(element, target=[]):\n    target.append(element)\n    return target\n\n# Idiomatic approach\ndef append_to(element, target=None):\n    if target is None:\n        target = []\n    target.append(element)\n    return target\n```',
-      category: 'Python',
-      tags: ['demo-seed', 'python', 'functions', 'memory', 'closures'],
+      title: 'Sliding Window & Two-Pointer Invariants',
+      content: '### Two-Pointer Convergence Pattern\n1. Initialize left and right pointers.\n2. Expand window with right pointer until constraint is violated.\n3. Shrink window with left pointer until constraint is satisfied again.\n4. Update optimal result at each valid window state.\n\nTime complexity is strictly O(N) because each pointer visits each element at most once.',
+      category: 'Algorithms & Data Structures',
+      tags: ['algorithms', 'arrays', 'strings', 'two-pointer', 'dsa'],
       project_id: defaultProjectId,
     },
     {
       title: 'Recursion Invariants & Call Stack Safety',
       content: '### Three Principles of Correct Recursion\n1. **Explicit Base Case:** Must be reached for every valid input path, evaluated *before* any recursive calls.\n2. **Strict Convergence:** Every recursive invocation must pass arguments that are strictly closer to the base condition.\n3. **Inductive Correctness:** Assume smaller subproblem solutions are correct and combine them without side-effects.\n\n### Stack Overflow Diagnosis Checklist\n- Did input magnitude strictly diminish?\n- Does the base condition account for empty/null inputs (`None`, `[]`, `""`)?\n- Is the maximum recursion depth within platform limits (`sys.getrecursionlimit()`)?',
       category: 'Algorithms & Data Structures',
-      tags: ['demo-seed', 'algorithms', 'recursion', 'dsa', 'call-stack'],
+      tags: ['algorithms', 'recursion', 'dsa', 'call-stack'],
       project_id: defaultProjectId,
     },
     {
-      title: 'Binary Search Boundary Conditions & Invariants',
-      content: '### Standard Interval Invariant: [left, right)\nUsing the half-open interval `[left, right)` prevents infinite loops and off-by-one errors:\n```python\ndef lower_bound(nums: list[int], target: int) -> int:\n    left = 0\n    right = len(nums)\n    while left < right:\n        mid = left + (right - left) // 2\n        if nums[mid] >= target:\n            right = mid\n        else:\n            left = mid + 1\n    return left\n```\n- If `target` is present, returns the first index of `target`.\n- If `target` is absent, returns the insertion index maintaining sorted order.',
+      title: 'Linked List Pointer Tracking & Floyd Cycle Invariants',
+      content: '### Pointer Step Safety Rule\nWhen moving two pointers at different speeds:\n- Slow pointer: `slow = slow.next` (requires `slow` not null)\n- Fast pointer: `fast = fast.next.next` (requires **both** `fast` and `fast.next` not null!)\n\n```python\n# Safe loop condition\nwhile fast and fast.next:\n    slow = slow.next\n    fast = fast.next.next\n    if slow == fast:\n        return True\nreturn False\n```',
       category: 'Algorithms & Data Structures',
-      tags: ['demo-seed', 'algorithms', 'binary-search', 'dsa'],
+      tags: ['algorithms', 'linked-lists', 'pointers', 'dsa'],
+      project_id: defaultProjectId,
+    },
+    {
+      title: 'Binary Tree Traversal Mechanics & Null Guard Invariants',
+      content: '### Tree DFS Universal Guard Rule\nEvery recursive tree helper must start with a universal null guard:\n```python\ndef maxDepth(root: Optional[TreeNode]) -> int:\n    if not root:\n        return 0\n    return 1 + max(maxDepth(root.left), maxDepth(root.right))\n```\nNever access `root.left.val` without first verifying `root.left is not None`.',
+      category: 'Algorithms & Data Structures',
+      tags: ['algorithms', 'binary-trees', 'recursion', 'dsa'],
+      project_id: defaultProjectId,
+    },
+    {
+      title: 'SQL Joins & Logical Execution Order Mental Model',
+      content: '### SQL Query Logical Execution Order\n1. `FROM` & `JOIN` (constructs Cartesian product, then applies `ON` conditions)\n2. `WHERE` (filters rows *before* aggregation)\n3. `GROUP BY` (groups records by specified non-aggregate expressions)\n4. `HAVING` (filters grouped rows *after* aggregation)\n5. `SELECT` (evaluates expressions, aliases, and window functions)\n6. `DISTINCT` (eliminates duplicate rows)\n7. `ORDER BY` (sorts the final projected dataset)\n8. `LIMIT` / `OFFSET` (paginates results)\n\n**Crucial Rule:** In `LEFT JOIN`, putting conditions in the `WHERE` clause can silently eliminate unmatched left rows or convert the join into an `INNER JOIN`. Always place inter-table relationship filters in `ON`.',
+      category: 'SQL & Databases',
+      tags: ['sql', 'database', 'joins', 'query-optimization'],
+      project_id: defaultProjectId,
+    },
+    {
+      title: 'Python Functions & Scope Reference (LEGB)',
+      content: '### Variable Lookup Hierarchy (LEGB Rule)\n- **L (Local):** Names assigned within a function body.\n- **E (Enclosing):** Names in the local scope of any enclosing functions (closures).\n- **G (Global):** Names assigned at the top-level of the module file.\n- **B (Built-in):** Predefined built-in names (`range`, `len`, `Exception`).\n\n### The Mutable Default Parameter Trap\nPython evaluates default parameter values **once**, when the function definition is parsed.\n```python\n# Anti-pattern\ndef append_to(element, target=[]):\n    target.append(element)\n    return target\n\n# Idiomatic approach\ndef append_to(element, target=None):\n    if target is None:\n        target = []\n    target.append(element)\n    return target\n```',
+      category: 'Python',
+      tags: ['python', 'functions', 'memory', 'closures'],
       project_id: defaultProjectId,
     },
     {
       title: 'Relational Normalization & BCNF Decomposition Rules',
       content: '### Normal Forms Summary\n- **1NF:** Atomic attribute values, no repeating groups.\n- **2NF:** 1NF + no partial dependencies (every non-prime attribute depends on whole candidate key).\n- **3NF:** 2NF + no transitive dependencies (non-prime attributes do not depend on other non-prime attributes).\n- **BCNF:** For every non-trivial functional dependency $X \\to Y$, $X$ must be a superkey.\n\n### Lossless Join & Dependency Preservation\nA decomposition into $R_1$ and $R_2$ is lossless if and only if $R_1 \\cap R_2 \\to R_1$ or $R_1 \\cap R_2 \\to R_2$.',
       category: 'Database Management Systems',
-      tags: ['demo-seed', 'dbms', 'normalization', 'bcnf', 'database-theory'],
+      tags: ['dbms', 'normalization', 'bcnf', 'database-theory'],
       project_id: defaultProjectId,
     },
     {
       title: 'Operating System CPU Scheduling Comparison',
       content: '### Scheduling Metrics\n- **Turnaround Time:** Completion Time - Arrival Time\n- **Waiting Time:** Turnaround Time - Burst Time\n- **Response Time:** Time from arrival to first execution\n\n### Algorithms Comparison\n| Algorithm | Preemptive | Convoy Effect | Starvation Risk |\n| :--- | :--- | :--- | :--- |\n| FCFS | No | High | None |\n| SJF (Non-preemptive) | No | Low | High (long jobs) |\n| SRTF (Preemptive) | Yes | None | High |\n| Round Robin | Yes | None | None |',
       category: 'Operating Systems',
-      tags: ['demo-seed', 'os', 'cpu-scheduling', 'operating-systems'],
+      tags: ['os', 'cpu-scheduling', 'operating-systems'],
       project_id: defaultProjectId,
     },
     {
       title: 'Computer Networks: TCP 3-Way Handshake & Flow Control',
       content: '### Connection Establishment\n1. **Client $\\to$ Server:** `SYN` (seq = x)\n2. **Server $\\to$ Client:** `SYN-ACK` (seq = y, ack = x + 1)\n3. **Client $\\to$ Server:** `ACK` (seq = x + 1, ack = y + 1)\n\n### Flow Control vs Congestion Control\n- **Flow Control:** Prevent sender from overwhelming receiver buffer (regulated via Advertised Window / `rwnd`).\n- **Congestion Control:** Prevent sender from overwhelming network links (regulated via Congestion Window / `cwnd`).',
       category: 'Computer Networks',
-      tags: ['demo-seed', 'networks', 'tcp', 'protocols'],
-      project_id: defaultProjectId,
-    },
-    {
-      title: 'Java OOP: Polymorphism vs Method Overloading',
-      content: '### Compile-time vs Runtime Polymorphism\n- **Method Overloading:** Same method name, different parameter lists within same class. Resolved at compile-time.\n- **Method Overriding:** Subclass provides specific implementation of parent method. Resolved dynamically at runtime via virtual method table (`vtable`).\n\n**Best Practice:** Always annotate overridden methods with `@Override` to ensure method signature matches exactly and prevent unintentional field/method shadowing.',
-      category: 'Java',
-      tags: ['demo-seed', 'java', 'oop', 'polymorphism'],
-      project_id: projectMap['distributed-kv-store-prototype'] || defaultProjectId,
-    },
-    {
-      title: 'REST API Error Handling & HTTP Status Codes',
-      content: '### HTTP Status Classification\n- `200 OK`: Successful read or update with body.\n- `201 Created`: Resource successfully created (include `Location` header).\n- `400 Bad Request`: Generic client payload formatting error.\n- `401 Unauthorized`: Authentication missing or token invalid.\n- `403 Forbidden`: Authenticated user lacks permission.\n- `404 Not Found`: Resource does not exist.\n- `422 Unprocessable Entity`: Semantic validation failure (e.g. Pydantic validation error).',
-      category: 'Web Development',
-      tags: ['demo-seed', 'api', 'rest', 'fastapi', 'http'],
-      project_id: defaultProjectId,
-    },
-    {
-      title: 'Machine Learning: Feature Scaling & Data Leakage Prevention',
-      content: '### Feature Scaling Rules\n- **StandardScaler:** $\\frac{x - \\mu}{\\sigma}$ (Zero mean, unit variance). Best for normal distributions.\n- **MinMaxScaler:** $\\frac{x - x_{min}}{x_{max} - x_{min}}$ (Binds to $[0, 1]$). Sensitive to outliers.\n\n**Data Leakage Warning:** Always compute scaler parameters (`fit`) on the **training set only**, and then apply them (`transform`) to the test/validation set. Never fit scalers on the full dataset before splitting.',
-      category: 'Machine Learning',
-      tags: ['demo-seed', 'ml', 'preprocessing', 'feature-engineering'],
+      tags: ['networks', 'tcp', 'protocols'],
       project_id: defaultProjectId,
     },
   ];
@@ -1087,7 +1173,384 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     }
   }
 
-  // 8. Revalidate all cached UI routes
+  // 8. EVIDENCE LINKS: Corroborate external LeetCode submissions, mistakes, and time sessions
+  // Directly associates empirical telemetry with skills to prove evidence-awareness.
+  let totalEvidenceLinks = 0;
+  try {
+    const { data: existingLinks } = await supabase
+      .from('evidence_links')
+      .select('source_type, source_id, target_type, target_id');
+
+    const existingKeySet = new Set(
+      (existingLinks || []).map((l: any) => `${l.source_type}:${l.source_id}:${l.target_type}:${l.target_id}`)
+    );
+
+    const linksToInsert: Array<{
+      source_type: string;
+      source_id: string;
+      target_type: string;
+      target_id: string;
+      weight: number;
+    }> = [];
+
+    // 8a. Link LeetCode Submissions to DSA sub-skills
+    const { data: lcSubmissions } = await supabase
+      .from('leetcode_submissions_log')
+      .select('id, title');
+
+    if (lcSubmissions && lcSubmissions.length > 0) {
+      for (const sub of lcSubmissions) {
+        const titleLower = sub.title.toLowerCase();
+
+        let targetSkillName: string | null = null;
+        let weight = 0.8;
+
+        if (
+          titleLower.includes('two sum') ||
+          titleLower.includes('3sum') ||
+          titleLower.includes('binary search') ||
+          titleLower.includes('sorted array') ||
+          titleLower.includes('peak element') ||
+          titleLower.includes('pivot index') ||
+          titleLower.includes('maximum average subarray') ||
+          titleLower.includes('trapping rain water') ||
+          titleLower.includes('kth largest') ||
+          titleLower.includes('daily temperatures') ||
+          titleLower.includes('xor triplets')
+        ) {
+          targetSkillName = 'Arrays';
+          weight = 0.9;
+        } else if (
+          titleLower.includes('anagram') ||
+          titleLower.includes('first unique character') ||
+          titleLower.includes('longest substring')
+        ) {
+          targetSkillName = 'Strings';
+          weight = 0.9;
+        } else if (titleLower.includes('fibonacci')) {
+          targetSkillName = 'Basic Recursion';
+          weight = 0.8;
+        } else if (
+          titleLower.includes('linked list') ||
+          titleLower.includes('sorted lists')
+        ) {
+          targetSkillName = 'Linked Lists';
+          weight = 0.8;
+        } else if (titleLower.includes('binary tree')) {
+          targetSkillName = 'Binary Trees';
+          weight = 0.8;
+        }
+
+        if (targetSkillName && skillMap[targetSkillName]) {
+          const targetSkillId = skillMap[targetSkillName];
+          const linkKey = `leetcode_submission:${sub.id}:skill:${targetSkillId}`;
+          if (!existingKeySet.has(linkKey)) {
+            linksToInsert.push({
+              source_type: 'leetcode_submission',
+              source_id: sub.id,
+              target_type: 'skill',
+              target_id: targetSkillId,
+              weight,
+            });
+            existingKeySet.add(linkKey);
+          }
+        }
+      }
+    }
+
+    // 8b. Link mistakes to target skills
+    for (const m of seedMistakes) {
+      const mistakeId = mistakeIdMap[m.title];
+      const targetSkillId = skillMap[m.skill_name];
+      if (mistakeId && targetSkillId) {
+        const linkKey = `mistake:${mistakeId}:skill:${targetSkillId}`;
+        if (!existingKeySet.has(linkKey)) {
+          linksToInsert.push({
+            source_type: 'mistake',
+            source_id: mistakeId,
+            target_type: 'skill',
+            target_id: targetSkillId,
+            weight: m.severity === 'critical' ? 0.9 : m.severity === 'high' ? 0.8 : 0.6,
+          });
+          existingKeySet.add(linkKey);
+        }
+      }
+    }
+
+    // 8c. Link time sessions to target skills
+    for (const s of seedSessions) {
+      const sessionId = sessionIdMap[s.description];
+      const targetSkillId = skillMap[s.skill_name];
+      if (sessionId && targetSkillId) {
+        const linkKey = `time_session:${sessionId}:skill:${targetSkillId}`;
+        if (!existingKeySet.has(linkKey)) {
+          linksToInsert.push({
+            source_type: 'time_session',
+            source_id: sessionId,
+            target_type: 'skill',
+            target_id: targetSkillId,
+            weight: Math.min(1.0, s.duration_minutes / 100),
+          });
+          existingKeySet.add(linkKey);
+        }
+      }
+    }
+
+    // 8d. Link tasks to target skills
+    const taskSkillAssociations: Record<string, string[]> = {
+      'seed-task-01-python-functions': ['Python Fundamentals', 'Programming Fundamentals'],
+      'seed-task-02-sql-joins': ['SQL & Relational Databases'],
+      'seed-task-03-sliding-window': ['Arrays'],
+      'seed-task-04-campus-portal-milestone': ['Web Development'],
+      'seed-task-05-dbms-normalization': ['Database Management Systems'],
+      'seed-task-06-binary-search': ['Arrays'],
+      'seed-task-07-basic-recursion': ['Basic Recursion', 'Programming Fundamentals'],
+      'seed-task-08-fastapi-crud-endpoints': ['Web Development'],
+      'seed-task-09-java-oop-inheritance': ['Java', 'Programming Fundamentals'],
+      'seed-task-10-string-manipulation': ['Strings'],
+      'seed-task-11-sql-aggregation-debug': ['SQL & Relational Databases'],
+      'seed-task-12-networks-tcp-handshake': ['Computer Networks'],
+      'seed-task-13-linked-list-debugging': ['Linked Lists'],
+      'seed-task-14-recursive-tree-traversal': ['Binary Trees'],
+      'seed-task-15-bst-operations': ['Tree Recursion & Traversal'],
+      'seed-task-16-postgresql-b-tree-indexing': ['Database Management Systems'],
+      'seed-task-17-kv-store-consistent-hashing': ['Java'],
+      'seed-task-18-advanced-trees-bfs-lca': ['Advanced Tree Patterns'],
+      'seed-task-19-dp-1d-memoization': ['Dynamic Programming'],
+      'seed-task-20-dp-2d-knapsack': ['Dynamic Programming'],
+      'seed-task-21-overdue-dbms-transaction-acid': ['Database Management Systems'],
+      'seed-task-22-python-interview-qa-prep': ['Python', 'Programming Fundamentals'],
+      'seed-task-23-fastapi-jwt-auth-middleware': ['Web Development'],
+      'seed-task-24-networks-subnetting-cidr': ['Computer Networks'],
+    };
+
+    for (const [taskKey, targetNames] of Object.entries(taskSkillAssociations)) {
+      const taskId = taskIdMap[taskKey];
+      if (!taskId) continue;
+      for (const tName of targetNames) {
+        const targetSkillId = skillMap[tName];
+        if (targetSkillId) {
+          const linkKey = `task:${taskId}:skill:${targetSkillId}`;
+          if (!existingKeySet.has(linkKey)) {
+            linksToInsert.push({
+              source_type: 'task',
+              source_id: taskId,
+              target_type: 'skill',
+              target_id: targetSkillId,
+              weight: 0.7,
+            });
+            existingKeySet.add(linkKey);
+          }
+        }
+      }
+    }
+
+    // 8e. Link CS core notes & GitHub repos to Programming Fundamentals
+    const { data: dbNotes } = await supabase.from('notes').select('id, title');
+    if (dbNotes && skillMap['Programming Fundamentals']) {
+      for (const n of dbNotes) {
+        if (
+          n.title.toLowerCase().includes('recursion') ||
+          n.title.toLowerCase().includes('invariants') ||
+          n.title.toLowerCase().includes('functions')
+        ) {
+          const linkKey = `note:${n.id}:skill:${skillMap['Programming Fundamentals']}`;
+          if (!existingKeySet.has(linkKey)) {
+            linksToInsert.push({
+              source_type: 'note',
+              source_id: n.id,
+              target_type: 'skill',
+              target_id: skillMap['Programming Fundamentals'],
+              weight: 0.6,
+            });
+            existingKeySet.add(linkKey);
+          }
+        }
+      }
+    }
+
+    const { data: ghRepos } = await supabase.from('github_repos').select('id, name');
+    if (ghRepos && skillMap['Programming Fundamentals']) {
+      for (const r of ghRepos) {
+        const linkKey = `github_repo:${r.id}:skill:${skillMap['Programming Fundamentals']}`;
+        if (!existingKeySet.has(linkKey)) {
+          linksToInsert.push({
+            source_type: 'github_repo',
+            source_id: r.id,
+            target_type: 'skill',
+            target_id: skillMap['Programming Fundamentals'],
+            weight: 0.8,
+          });
+          existingKeySet.add(linkKey);
+        }
+      }
+    }
+
+    if (linksToInsert.length > 0) {
+      await supabase.from('evidence_links').insert(linksToInsert);
+    }
+    totalEvidenceLinks = existingKeySet.size;
+  } catch (linkErr) {
+    console.error('Evidence link population notice:', linkErr);
+  }
+
+  // 9. LEARNING PATH STORE: Seed authentic prior learning path in .learning_path_store.json
+  // Proves the student ALREADY completed Arrays/Strings/Recursion, but stalled on Linked Lists & Binary Trees.
+  try {
+    const storePath = path.resolve('.learning_path_store.json');
+    let store: Record<string, any> = {};
+    if (fs.existsSync(storePath)) {
+      try {
+        store = JSON.parse(fs.readFileSync(storePath, 'utf8'));
+      } catch {}
+    }
+
+    store[targetUserId] = {
+      id: `path_dsa_prior_${targetUserId.slice(0, 8)}`,
+      user_id: targetUserId,
+      goal: 'Master Core Data Structures & Algorithms',
+      total_days: 7,
+      start_date: '2026-09-08',
+      plan_metadata: { domain: 'DSA', priorHistory: true },
+      is_active: true,
+      created_at: '2026-09-08T09:00:00.000Z',
+      updated_at: '2026-09-17T18:00:00.000Z',
+      days: [
+        {
+          id: `day_prior_${targetUserId.slice(0, 8)}_1`,
+          path_id: `path_dsa_prior_${targetUserId.slice(0, 8)}`,
+          user_id: targetUserId,
+          day_number: 1,
+          topic: 'Arrays — Two-Pointer & Sliding Window Techniques',
+          learn_content: 'Master two-pointer convergence and sliding window boundary invariants.',
+          practice_problems: 4,
+          review_activity: 'Review solved LeetCode problems (Two Sum, 3Sum, Subarray Maximum)',
+          ai_estimated_minutes: 60,
+          priority: 'HIGH',
+          evidence_rationale: 'Core foundation for technical interviews',
+          activities_completed: { learn: true, practice: true, review: true },
+          is_completed: true,
+          completed_at: '2026-09-08T18:00:00.000Z',
+          created_at: '2026-09-08T09:00:00.000Z',
+          updated_at: '2026-09-08T18:00:00.000Z',
+        },
+        {
+          id: `day_prior_${targetUserId.slice(0, 8)}_2`,
+          path_id: `path_dsa_prior_${targetUserId.slice(0, 8)}`,
+          user_id: targetUserId,
+          day_number: 2,
+          topic: 'Binary Search — Exact Match & Boundary Invariants [left, right)',
+          learn_content: 'Standardize on half-open interval to avoid off-by-one errors.',
+          practice_problems: 4,
+          review_activity: 'Review lower_bound boundary off-by-one error fix',
+          ai_estimated_minutes: 60,
+          priority: 'HIGH',
+          evidence_rationale: 'Essential search pattern for sorted datasets',
+          activities_completed: { learn: true, practice: true, review: true },
+          is_completed: true,
+          completed_at: '2026-09-09T17:00:00.000Z',
+          created_at: '2026-09-09T09:00:00.000Z',
+          updated_at: '2026-09-09T17:00:00.000Z',
+        },
+        {
+          id: `day_prior_${targetUserId.slice(0, 8)}_3`,
+          path_id: `path_dsa_prior_${targetUserId.slice(0, 8)}`,
+          user_id: targetUserId,
+          day_number: 3,
+          topic: 'Strings & Basic Recursion — Anagrams, Scopes, and Invariants',
+          learn_content: 'Hash table frequency counters and base-case call-stack mechanics.',
+          practice_problems: 4,
+          review_activity: 'Verify Fibonacci recursive stack depth and string hashing',
+          ai_estimated_minutes: 60,
+          priority: 'MEDIUM',
+          evidence_rationale: 'Reinforces recursive mental model',
+          activities_completed: { learn: true, practice: true, review: true },
+          is_completed: true,
+          completed_at: '2026-09-11T18:00:00.000Z',
+          created_at: '2026-09-11T09:00:00.000Z',
+          updated_at: '2026-09-11T18:00:00.000Z',
+        },
+        {
+          id: `day_prior_${targetUserId.slice(0, 8)}_4`,
+          path_id: `path_dsa_prior_${targetUserId.slice(0, 8)}`,
+          user_id: targetUserId,
+          day_number: 4,
+          topic: 'Linked Lists — Pointer Reversal & Floyd Cycle Detection',
+          learn_content: 'Fast and slow pointer mechanics, in-place pointer reversal.',
+          practice_problems: 4,
+          review_activity: 'Debug null dereference bug in cycle detection loop',
+          ai_estimated_minutes: 75,
+          priority: 'HIGH',
+          evidence_rationale: 'Struggled with pointer tracking null exceptions',
+          activities_completed: { learn: true, practice: false, review: false },
+          is_completed: false,
+          completed_at: null,
+          created_at: '2026-09-13T09:00:00.000Z',
+          updated_at: '2026-09-15T18:00:00.000Z',
+        },
+        {
+          id: `day_prior_${targetUserId.slice(0, 8)}_5`,
+          path_id: `path_dsa_prior_${targetUserId.slice(0, 8)}`,
+          user_id: targetUserId,
+          day_number: 5,
+          topic: 'Binary Trees — DFS Traversals & Universal Base Cases',
+          learn_content: 'In-order, pre-order, post-order DFS and call stack visualization.',
+          practice_problems: 4,
+          review_activity: 'Fix stack overflow bug in path sum recursion',
+          ai_estimated_minutes: 90,
+          priority: 'HIGH',
+          evidence_rationale: 'Recursion missing base-case caused stack overflow',
+          activities_completed: { learn: false, practice: false, review: false },
+          is_completed: false,
+          completed_at: null,
+          created_at: '2026-09-15T09:00:00.000Z',
+          updated_at: '2026-09-15T09:00:00.000Z',
+        },
+        {
+          id: `day_prior_${targetUserId.slice(0, 8)}_6`,
+          path_id: `path_dsa_prior_${targetUserId.slice(0, 8)}`,
+          user_id: targetUserId,
+          day_number: 6,
+          topic: 'Advanced Tree Patterns — BFS Level Order & LCA',
+          learn_content: 'Queue-based BFS level-order iteration and Lowest Common Ancestor.',
+          practice_problems: 4,
+          review_activity: 'Pending tree traversal remediation',
+          ai_estimated_minutes: 75,
+          priority: 'HIGH',
+          evidence_rationale: 'Unfinished due to earlier tree traversal blockers',
+          activities_completed: { learn: false, practice: false, review: false },
+          is_completed: false,
+          completed_at: null,
+          created_at: '2026-09-16T09:00:00.000Z',
+          updated_at: '2026-09-16T09:00:00.000Z',
+        },
+        {
+          id: `day_prior_${targetUserId.slice(0, 8)}_7`,
+          path_id: `path_dsa_prior_${targetUserId.slice(0, 8)}`,
+          user_id: targetUserId,
+          day_number: 7,
+          topic: 'Dynamic Programming — 1D Foundations & State Formulation',
+          learn_content: 'Memoization vs tabulation on overlapping subproblems.',
+          practice_problems: 4,
+          review_activity: 'Not yet started',
+          ai_estimated_minutes: 90,
+          priority: 'HIGH',
+          evidence_rationale: 'Known gap before campus placements',
+          activities_completed: { learn: false, practice: false, review: false },
+          is_completed: false,
+          completed_at: null,
+          created_at: '2026-09-17T09:00:00.000Z',
+          updated_at: '2026-09-17T09:00:00.000Z',
+        },
+      ],
+    };
+
+    fs.writeFileSync(storePath, JSON.stringify(store, null, 2), 'utf8');
+  } catch (storeErr) {
+    console.error('Failed to update .learning_path_store.json:', storeErr);
+  }
+
+  // 10. Revalidate all cached UI routes
   try {
     revalidatePath('/tasks');
     revalidatePath('/skills');
@@ -1099,6 +1562,8 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     revalidatePath('/analytics');
     revalidatePath('/learning-coach');
     revalidatePath('/settings');
+    revalidatePath('/profile');
+    revalidatePath('/learning-path');
     revalidatePath('/');
   } catch {}
 
@@ -1106,7 +1571,7 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
 
   return {
     success: true,
-    message: 'Persistent demo learning history successfully populated in database.',
+    message: 'Persistent student learning history successfully populated in database.',
     userId: targetUserId,
     tasksCount: stats.tasksCount,
     timeSessionsCount: stats.timeSessionsCount,
@@ -1115,12 +1580,13 @@ export async function seedStudentLearningHistory(explicitUserId?: string): Promi
     notesCount: stats.notesCount,
     skillsCount: stats.skillsCount,
     projectsCount: stats.projectsCount,
+    evidenceLinksCount: stats.evidenceLinksCount,
     dateRange: { startDate, endDate },
   };
 }
 
 /**
- * Protected action to cleanly clear ONLY records created by this demo seed.
+ * Protected action to cleanly clear ONLY records created by this learning history seed.
  * NEVER deletes genuine user data, external integration data, or modifies RLS.
  */
 export async function clearDemoLearningHistory(explicitUserId?: string): Promise<ClearDemoHistoryResult> {
@@ -1148,6 +1614,7 @@ export async function clearDemoLearningHistory(explicitUserId?: string): Promise
     journalEntries: 0,
     notes: 0,
     projects: 0,
+    evidenceLinks: 0,
   };
 
   // 1. Delete seeded tasks (matching idempotency_key like 'seed-task-%')
@@ -1158,22 +1625,43 @@ export async function clearDemoLearningHistory(explicitUserId?: string): Promise
     .select('id');
   removed.tasks = deletedTasks?.length || 0;
 
-  // 2. Delete seeded time sessions (matching '[seed-session:')
+  // 2. Delete seeded time sessions (matching known seeded descriptions)
+  const seededSessionDescriptions = [
+    'Reviewed Python function parameter rules, LEGB scopes, and default argument memory retention.',
+    'Practiced SQL complex INNER and LEFT joins in PostgreSQL across relational schemas.',
+    'Finalized Campus Event Portal JWT auth & role guards in Next.js.',
+    'Two-pointer sliding window array problem solving: Maximum Average Subarray & Longest Substring.',
+    'Deep dive into relational database normalization: functional dependencies, 3NF, and BCNF.',
+    'Binary search lower_bound and boundary condition tests on sorted arrays.',
+    'CPU Scheduling simulation: Round Robin vs Shortest Job First with turnaround time metrics.',
+    'Basic recursion exercises: Fibonacci number and call stack depth analysis.',
+    'Implemented FastAPI CRUD endpoints for study session logging and Pydantic validation.',
+    'Quick architectural read on Distributed Key-Value store gossip protocols and hash rings.',
+    'Java OOP polymorphism and geometric shape hierarchy inheritance exercises.',
+    'String manipulation exercises: Valid Anagram and First Unique Character using hash tables.',
+    'Linked list pointer traversal and debugging fast-and-slow cycle detection null exceptions.',
+    'Recursive binary tree traversal: encountered stack overflow in path sum, working on base-case guard.',
+    'Binary Search Tree node insertion and subtree link retention tracing.',
+    'Computer Networks TCP 3-way handshake and packet flow analysis in Wireshark.',
+    'Reviewing recurring mistake patterns across SQL JOINs, recursion termination, and tree traversals.',
+  ];
   const { data: deletedSessions } = await supabase
     .from('time_sessions')
     .delete()
-    .like('description', '%[seed-session:%')
+    .in('description', seededSessionDescriptions)
     .select('id');
   removed.sessions = deletedSessions?.length || 0;
 
   // 3. Delete seeded mistakes (matching known titles)
-  const demoMistakeTitles = [
+  const seededMistakeTitles = [
+    'Null pointer dereference during fast-and-slow pointer cycle detection',
+    'Recursion missing base-case causing stack overflow in tree path sum',
+    'Lost subtree references during binary search tree node insertion',
+    'Off-by-one boundary error in binary search lower_bound',
     'SQL JOIN Cartesian explosion due to missing ON condition',
     'SQL GROUP BY non-aggregated column omission',
     'SQL JOIN NULL handling discrepancy in NOT IN subquery',
     'Python mutable default argument retention bug',
-    'Recursion missing base-case causing stack overflow',
-    'Off-by-one boundary error in binary search lower_bound',
     'Java variable shadowing instead of method overriding in subclass',
     'FastAPI missing request body validation on unhandled null JSON',
     'Database normalization 2NF violation with partial functional dependency',
@@ -1182,28 +1670,39 @@ export async function clearDemoLearningHistory(explicitUserId?: string): Promise
   const { data: deletedMistakes } = await supabase
     .from('mistakes')
     .delete()
-    .in('title', demoMistakeTitles)
+    .in('title', seededMistakeTitles)
     .select('id');
   removed.mistakes = deletedMistakes?.length || 0;
 
   // 4. Delete seeded journal entries (matching dates 2026-09-04 through 2026-09-16)
-  const demoJournalDates = [
+  const seededJournalDates = [
     '2026-09-04', '2026-09-05', '2026-09-06', '2026-09-07', '2026-09-08',
-    '2026-09-09', '2026-09-10', '2026-09-11', '2026-09-13', '2026-09-14',
-    '2026-09-15', '2026-09-16',
+    '2026-09-09', '2026-09-11', '2026-09-14', '2026-09-15', '2026-09-16',
   ];
   const { data: deletedJournals } = await supabase
     .from('journal_entries')
     .delete()
-    .in('entry_date', demoJournalDates)
+    .in('entry_date', seededJournalDates)
     .select('id');
   removed.journalEntries = deletedJournals?.length || 0;
 
-  // 5. Delete seeded notes (matching 'demo-seed' tag)
+  // 5. Delete seeded notes (matching known titles)
+  const seededNoteTitles = [
+    'Binary Search Boundary Conditions & Invariants',
+    'Sliding Window & Two-Pointer Invariants',
+    'Recursion Invariants & Call Stack Safety',
+    'Linked List Pointer Tracking & Floyd Cycle Invariants',
+    'Binary Tree Traversal Mechanics & Null Guard Invariants',
+    'SQL Joins & Logical Execution Order Mental Model',
+    'Python Functions & Scope Reference (LEGB)',
+    'Relational Normalization & BCNF Decomposition Rules',
+    'Operating System CPU Scheduling Comparison',
+    'Computer Networks: TCP 3-Way Handshake & Flow Control',
+  ];
   const { data: deletedNotes } = await supabase
     .from('notes')
     .delete()
-    .contains('tags', ['demo-seed'])
+    .in('title', seededNoteTitles)
     .select('id');
   removed.notes = deletedNotes?.length || 0;
 
@@ -1233,6 +1732,8 @@ export async function clearDemoLearningHistory(explicitUserId?: string): Promise
     revalidatePath('/analytics');
     revalidatePath('/learning-coach');
     revalidatePath('/settings');
+    revalidatePath('/profile');
+    revalidatePath('/learning-path');
     revalidatePath('/');
   } catch {}
 

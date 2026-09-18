@@ -37,14 +37,14 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 export function categorizeSkillEvidence(assessment: StudentSkillAssessment): SkillEvidenceCategory {
   const extCount = assessment.evidenceCount.externallyVerified || 0;
   const obsCount = Math.max(0, (assessment.evidenceCount.supporting || 0) - extCount);
-  const contraCount = assessment.evidenceCount.contradicting || 0;
-  const hasContradictions = assessment.contradictions.length > 0 || contraCount > 0 || assessment.confidenceLevel === 'CONTRADICTED';
+  const isContradicted = assessment.confidenceLevel === 'CONTRADICTED' || 
+    assessment.contradictions.some((c) => c.severity === 'SEVERE');
 
-  if (hasContradictions) {
+  if (isContradicted) {
     return 'CONTRADICTED';
   }
 
-  if (assessment.confidenceLevel === 'HIGH') {
+  if (assessment.confidenceLevel === 'HIGH' || assessment.evidenceBackedScore >= 0.70) {
     return 'SUPPORTED_STRENGTH';
   }
 
@@ -190,7 +190,7 @@ export function generateStudentLearningAssessmentDeterministic(
     // Track categorizations
     if (evidenceCat === 'SUPPORTED_STRENGTH') supportedStrengths.push(raw.skillName);
     if (evidenceCat === 'DEVELOPING') developingAreas.push(raw.skillName);
-    if (evidenceCat === 'EVIDENCE_GAP') evidenceGaps.push(raw.skillName);
+    if (evidenceCat === 'EVIDENCE_GAP' || evidenceCat === 'INSUFFICIENT_EVIDENCE') evidenceGaps.push(raw.skillName);
     if (evidenceCat === 'CONTRADICTED') contradictedAreas.push(raw.skillName);
 
     // Determine Freshness
@@ -259,10 +259,19 @@ export function generateStudentLearningAssessmentDeterministic(
     else if (rec.source === 'note') actualSourcesSet.add('Notes');
   }
 
+  // Fallback to audit metadata if records were not attached directly (e.g. in test fixtures)
+  if (audit?.metadata?.hasGitHubConnected) actualSourcesSet.add('GitHub');
+  if (audit?.metadata?.hasLeetCodeConnected) actualSourcesSet.add('LeetCode');
+
+  const fallbackTotalEvidence = audit?.metadata?.totalEvidenceLinksParsed 
+    ?? audit?.skillsEvaluated.reduce((acc, s) => acc + (s.evidenceCount?.total || 0), 0)
+    ?? 0;
+  const totalEvidenceRecords = allRecords.length > 0 ? allRecords.length : fallbackTotalEvidence;
+
   const activeSources = Array.from(actualSourcesSet);
 
   const recentActivitySummary = {
-    totalEvidenceRecords: allRecords.length,
+    totalEvidenceRecords,
     hasRecentGitHubActivity: actualSourcesSet.has('GitHub'),
     hasRecentLeetCodeActivity: actualSourcesSet.has('LeetCode'),
     hasLoggedMistakes: actualSourcesSet.has('Mistake Logs') || contradictedAreas.length > 0,
@@ -318,6 +327,9 @@ export function generateStudentLearningAssessmentDeterministic(
     developingAreas,
     evidenceGaps,
     contradictedAreas,
+    alreadyDemonstrated: supportedStrengths,
+    needsReinforcement: Array.from(new Set([...contradictedAreas, ...developingAreas])),
+    newLearning: evidenceGaps,
     observablePatterns,
     recentActivitySummary,
     assessmentSummary: summary.trim(),

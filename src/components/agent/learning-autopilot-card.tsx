@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useTransition } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Compass,
   AlertCircle,
@@ -72,6 +73,11 @@ export function LearningAutopilotCard() {
   const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load dismissed fingerprints from localStorage
   const getDismissedFps = (): string[] => {
@@ -225,8 +231,9 @@ export function LearningAutopilotCard() {
   const displayedEvidence = showAllEvidence ? situation.evidenceBasis : situation.evidenceBasis.slice(0, 3);
 
   return (
-    <GlassCard className="p-5 border-l-4 border-l-amber-500 border-y border-r border-[var(--exec-border)] bg-[var(--exec-surface)] relative overflow-hidden shadow-xs">
-      <div className="space-y-3.5">
+    <>
+      <GlassCard className="p-5 border-l-4 border-l-amber-500 border-y border-r border-[var(--exec-border)] bg-[var(--exec-surface)] relative overflow-hidden shadow-xs">
+        <div className="space-y-3.5">
         {/* Header bar */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -302,16 +309,18 @@ export function LearningAutopilotCard() {
           </div>
         </div>
       </div>
+    </GlassCard>
 
       {/* ------------------------------------------------------------------- */}
       {/* Phase 5 Human Approval Review Modal / Confirmation Gate */}
+      {/* Rendered via Portal directly into document.body to avoid parent card clipping */}
       {/* ------------------------------------------------------------------- */}
-      {isReviewOpen && (
+      {mounted && isReviewOpen && createPortal(
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="autopilot-modal-title"
-          className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-fadeIn"
+          className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-fadeIn"
           onClick={(e) => {
             if (e.target === e.currentTarget && !isPending) {
               setIsReviewOpen(false);
@@ -573,9 +582,10 @@ export function LearningAutopilotCard() {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </GlassCard>
+    </>
   );
 }
 

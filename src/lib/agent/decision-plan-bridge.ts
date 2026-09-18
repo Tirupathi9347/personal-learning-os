@@ -163,6 +163,9 @@ export function bridgeDecisionToPlanDeterministic(
       requiresApproval: decision.requiresHumanApproval,
       reason: decision.requiresHumanApproval ? 'High urgency or controlled action requires human review' : null,
     },
+    prerequisites: (assessment?.supportedStrengths || []).map(
+      (s) => `${s} (Already demonstrated — preserved as foundation)`
+    ),
     metadata: {
       decisionId: decision.decisionId,
       decisionType: decision.decisionType,
@@ -171,6 +174,12 @@ export function bridgeDecisionToPlanDeterministic(
       contradictions: decision.contradictions,
       evidenceGaps: decision.evidenceGaps,
       unavailableCapabilities,
+      alreadyDemonstrated: assessment?.supportedStrengths || [],
+      needsReinforcement: Array.from(
+        new Set([...(assessment?.contradictedAreas || []), ...(assessment?.developingAreas || [])])
+      ),
+      newLearningOrInsufficientEvidence: assessment?.evidenceGaps || [],
+      personalizedRoadmapTitle: `${goalUnderstanding?.timeframe ? `${goalUnderstanding.timeframe} ` : ''}Personalized Roadmap`,
       ...input.metadata,
     },
     createdAt: timestamp,
@@ -361,24 +370,298 @@ function deriveEffortFromEvidence(
  * Topics and sub-topics are derived from the target skill domain and
  * the decision type — never hardcoded for a specific technology.
  */
+interface CurriculumDay {
+  topic: string;
+  learn: string;
+  practiceCount: number;
+  reviewActivity: string;
+  targetSkill?: string;
+  whySelected?: string;
+  expectedOutcome?: string;
+  pedagogicalCategory?: 'REMEDIATION' | 'NEW_CONCEPT' | 'MIXED_PRACTICE' | 'INTERVIEW_SIMULATION';
+}
+
+/**
+ * Build a curriculum of N days dynamically from the decision + assessment context.
+ * Topics and sub-topics are derived from real student evidence — prioritizing
+ * severe contradictions and logged mistakes, bridging unencountered concept gaps,
+ * and leveraging verified strengths without repeating basics from scratch.
+ */
 function buildDayCurriculum(
   numDays: number,
   primaryTargetSkill: string,
   decisionType: string,
   assessment: import('./assessment-types').StudentLearningAssessment | null | undefined,
-): Array<{
-  topic: string;
-  learn: string;
-  practiceCount: number;
-  reviewActivity: string;
-}> {
-  const days: Array<{ topic: string; learn: string; practiceCount: number; reviewActivity: string }> = [];
+): CurriculumDay[] {
+  const days: CurriculumDay[] = [];
 
-  // Phase breakdown ratios (dynamic by total days)
-  // ≤ 2 days → Foundation + Practice
-  // 3-5 days → Foundation, Core, Practice, Review
-  // 6-14 days → extended cycle: Foundation, Topics, Practice, Deep Dive, Review, Apply
+  // Check if this is a DSA preparation domain (strictly excluding SQL, DBMS, OS, Networks)
+  const lowerSkill = primaryTargetSkill.toLowerCase();
+  const isNonDsa =
+    lowerSkill.includes('sql') ||
+    lowerSkill.includes('database') ||
+    lowerSkill.includes('dbms') ||
+    lowerSkill.includes('network') ||
+    lowerSkill.includes('operating system') ||
+    lowerSkill.includes('web development');
 
+  const isDsaDomain =
+    !isNonDsa &&
+    (
+      lowerSkill.includes('data structure') ||
+      lowerSkill.includes('dsa') ||
+      lowerSkill.includes('algorithm') ||
+      lowerSkill.includes('array') ||
+      lowerSkill.includes('linked list') ||
+      lowerSkill.includes('tree') ||
+      lowerSkill.includes('dynamic programming') ||
+      lowerSkill.includes('recursion') ||
+      lowerSkill === 'general'
+    );
+
+  if (isDsaDomain) {
+    // Dynamic evidence extraction across assessed sub-skills
+    const skillMap = new Map<string, import('./assessment-types').SkillLearningAssessment>();
+    if (assessment?.skillAssessments) {
+      for (const s of assessment.skillAssessments) {
+        skillMap.set(s.skillName.toLowerCase().trim(), s);
+      }
+    }
+
+    const linkedListAssessment = skillMap.get('linked lists') || Array.from(skillMap.values()).find((s) => s.skillName.toLowerCase().includes('linked list'));
+    const binaryTreeAssessment = skillMap.get('binary trees') || Array.from(skillMap.values()).find((s) => s.skillName.toLowerCase().includes('binary tree'));
+    const advTreeAssessment = skillMap.get('advanced tree patterns') || Array.from(skillMap.values()).find((s) => s.skillName.toLowerCase().includes('advanced tree'));
+    const dpAssessment = skillMap.get('dynamic programming') || Array.from(skillMap.values()).find((s) => s.skillName.toLowerCase().includes('dynamic programming'));
+    const arrayAssessment = skillMap.get('arrays') || Array.from(skillMap.values()).find((s) => s.skillName.toLowerCase() === 'arrays');
+
+    const isLinkedListContradicted = linkedListAssessment
+      ? linkedListAssessment.evidenceCategory === 'CONTRADICTED' || linkedListAssessment.calibratedProficiency <= 2 || linkedListAssessment.contradictions.length > 0
+      : true;
+
+    const isBinaryTreeContradicted = binaryTreeAssessment
+      ? binaryTreeAssessment.evidenceCategory === 'CONTRADICTED' || binaryTreeAssessment.calibratedProficiency <= 2 || binaryTreeAssessment.contradictions.length > 0
+      : true;
+
+    const isAdvTreeGap = advTreeAssessment
+      ? advTreeAssessment.evidenceCategory === 'INSUFFICIENT_EVIDENCE' || advTreeAssessment.evidenceCategory === 'EVIDENCE_GAP' || advTreeAssessment.calibratedProficiency <= 1
+      : true;
+
+    const isDpGap = dpAssessment
+      ? dpAssessment.evidenceCategory === 'INSUFFICIENT_EVIDENCE' || dpAssessment.evidenceCategory === 'EVIDENCE_GAP' || dpAssessment.calibratedProficiency <= 1
+      : true;
+
+    // 7-day adaptive DSA interview roadmap targeting weak areas & gaps while skipping mastered basics
+    if (numDays >= 7) {
+      if (isLinkedListContradicted) {
+        days.push({
+          topic: 'Linked Lists — Pointer Invariant Remediation & Fast/Slow Pointers',
+          learn: 'Remediate pointer tracking pitfalls: verify fast and fast.next boundary conditions in cycle detection, practice in-place reversal invariants, and handle odd/even node counts cleanly.',
+          practiceCount: 4,
+          reviewActivity: 'Review logged mistake on fast/slow pointer null dereference; confirm fix',
+          targetSkill: 'Linked Lists',
+          whySelected: `Calibrated proficiency ${linkedListAssessment?.calibratedProficiency ?? 1}/5 (${linkedListAssessment?.evidenceCategory === 'CONTRADICTED' ? 'contradicted' : 'weak'}) → 90 min deep study required.${(linkedListAssessment?.contradictions?.length ?? 0) > 0 ? ` ${(linkedListAssessment?.contradictions?.length ?? 1)} mistake(s) logged for this area → +15 min remediation.` : ''}`,
+          expectedOutcome: 'Eradicate pointer null exceptions and reliably implement fast/slow pointer cycle detection invariants.',
+          pedagogicalCategory: 'REMEDIATION',
+        });
+      }
+
+      if (isBinaryTreeContradicted) {
+        days.push({
+          topic: 'Binary Trees — Traversal Recursion & Universal Base-Case Guards',
+          learn: 'Master recursive tree DFS call-stack mechanics: ensure universal null check (if not root) precedes child dereferencing to prevent recursion stack overflow in path sum and depth calculation.',
+          practiceCount: 4,
+          reviewActivity: 'Review logged mistake on infinite recursion & stack overflow in tree path sum',
+          targetSkill: 'Binary Trees',
+          whySelected: `Calibrated proficiency ${binaryTreeAssessment?.calibratedProficiency ?? 1}/5 (${binaryTreeAssessment?.evidenceCategory === 'CONTRADICTED' ? 'contradicted' : 'weak'}) → 90 min deep study required.`,
+          expectedOutcome: 'Establish universal base-case recursion guards preventing call-stack overflow in tree traversals.',
+          pedagogicalCategory: 'REMEDIATION',
+        });
+      }
+
+      if (isAdvTreeGap) {
+        days.push({
+          topic: 'Advanced Tree Patterns — BFS Level-Order, Tree Diameter & LCA',
+          learn: 'Bridge tree traversal gaps: queue-based BFS level-order iteration, post-order bottom-up diameter computation, and Lowest Common Ancestor (LCA) recursive boundary checks.',
+          practiceCount: 4,
+          reviewActivity: 'Trace LCA recursion call tree on paper to verify pointer return values',
+          targetSkill: 'Advanced Tree Patterns',
+          whySelected: `Calibrated proficiency ${advTreeAssessment?.calibratedProficiency ?? 1}/5 (weak) → 90 min deep study required.`,
+          expectedOutcome: 'Proficiency in BFS queue iteration, tree diameter computation, and LCA ancestor tracking.',
+          pedagogicalCategory: 'NEW_CONCEPT',
+        });
+      }
+
+      if (isDpGap) {
+        days.push({
+          topic: 'Dynamic Programming — 1D State Formulation & Memoization',
+          learn: 'Bridge DP gap: identifying overlapping subproblems and optimal substructure. Converting recursion to memoized top-down and 1D bottom-up tabulation (Climbing Stairs, House Robber, Coin Change).',
+          practiceCount: 4,
+          reviewActivity: 'Document 1D state transition equations and base-case initializations in study notes',
+          targetSkill: 'Dynamic Programming',
+          whySelected: `Calibrated proficiency ${dpAssessment?.calibratedProficiency ?? 1}/5 (weak) → 90 min deep study required.`,
+          expectedOutcome: 'Ability to identify overlapping subproblems and convert recursive solutions to 1D memoization/tabulation.',
+          pedagogicalCategory: 'NEW_CONCEPT',
+        });
+
+        days.push({
+          topic: 'Dynamic Programming — 2D Grid Paths & Knapsack Patterns',
+          learn: 'Advance to multi-dimensional DP: grid path counting with obstacles, 0/1 Knapsack decision branches, and Longest Common Subsequence state tables with space optimization.',
+          practiceCount: 4,
+          reviewActivity: 'Review memory complexity trade-offs: reducing 2D grid DP tables from O(M*N) to O(N) auxiliary space',
+          targetSkill: 'Dynamic Programming',
+          whySelected: `Calibrated proficiency ${dpAssessment?.calibratedProficiency ?? 1}/5 (weak) → 90 min deep study required.`,
+          expectedOutcome: 'Formulate 2D state transition tables and optimize auxiliary space from O(M*N) to O(N).',
+          pedagogicalCategory: 'NEW_CONCEPT',
+        });
+      }
+
+      // Synthesis & speed leveraging already demonstrated strengths (Arrays & Strings)
+      days.push({
+        topic: 'Mixed Interview Speed Practice — Arrays, Strings, Trees & DP Pipelines',
+        learn: 'Combine mastered fundamentals (Two-Pointer, Sliding Window, Hashing) with recently remediated Tree and DP concepts under simulated interview time constraints.',
+        practiceCount: 5,
+        reviewActivity: 'Speed audit: assess problem-solving velocity on mastered arrays vs remediated tree/DP problems',
+        targetSkill: 'Arrays',
+        whySelected: `Calibrated proficiency ${arrayAssessment?.calibratedProficiency ?? 3}/5 (developing) → 60 min focused study.`,
+        expectedOutcome: 'High velocity solving mixed technical interview questions integrating arrays, strings, trees, and DP.',
+        pedagogicalCategory: 'MIXED_PRACTICE',
+      });
+
+      // Full Technical Interview Simulation (Capstone)
+      days.push({
+        topic: 'Technical Interview Simulation — Timed Problem Execution & Whiteboarding',
+        learn: 'Full mock interview simulation: solve 4 mixed medium challenges across Trees, DP, and Arrays in timed 45-minute blocks with explicit time/space complexity analysis.',
+        practiceCount: 4,
+        reviewActivity: 'Audit full mistake log: verify zero recurrence of pointer null dereference or recursion base-case traps',
+        targetSkill: 'Data Structures & Algorithms',
+        whySelected: 'Calibrated proficiency 1/5 (contradicted) → 90 min deep study required.',
+        expectedOutcome: 'Demonstrated technical interview readiness under timed conditions with zero recurrence of logged bugs.',
+        pedagogicalCategory: 'INTERVIEW_SIMULATION',
+      });
+
+      // If numDays > 7, fill remaining days with advanced deep dive & mock interviews
+      for (let extra = 8; extra <= numDays; extra++) {
+        days.push({
+          topic: `Technical Interview Simulation (Round ${extra - 6}) — Complex Mixed Scenarios`,
+          learn: `Advanced problem variations and speed drills covering graph BFS/DFS, Trie prefix trees, and sliding window maximum.`,
+          practiceCount: 4,
+          reviewActivity: 'Consolidate final interview cheat sheet and review prevention rules',
+          targetSkill: 'Data Structures & Algorithms',
+          whySelected: 'Advanced extension round for extended timeframe interview readiness.',
+          expectedOutcome: 'Mastery over complex graph and trie interview problem variations.',
+          pedagogicalCategory: 'INTERVIEW_SIMULATION',
+        });
+      }
+
+      return days;
+    }
+
+    if (numDays === 5) {
+      if (isLinkedListContradicted) {
+        days.push({
+          topic: 'Linked Lists — Pointer Invariant Remediation & Fast/Slow Pointers',
+          learn: 'Remediate pointer tracking pitfalls: verify fast and fast.next boundary conditions in cycle detection, practice in-place reversal invariants, and handle odd/even node counts cleanly.',
+          practiceCount: 4,
+          reviewActivity: 'Review logged mistake on fast/slow pointer null dereference; confirm fix',
+          targetSkill: 'Linked Lists',
+          whySelected: `Calibrated proficiency ${linkedListAssessment?.calibratedProficiency ?? 1}/5 (contradicted) → remediation prioritized.`,
+          expectedOutcome: 'Fix pointer null dereference bugs.',
+          pedagogicalCategory: 'REMEDIATION',
+        });
+      }
+
+      if (isBinaryTreeContradicted) {
+        days.push({
+          topic: 'Binary Trees & Traversal — DFS Recursion Guards & Call Stack Safety',
+          learn: 'Master recursive tree DFS call-stack mechanics: ensure universal null check (if not root) precedes child dereferencing to prevent recursion stack overflow in path sum and depth calculation.',
+          practiceCount: 4,
+          reviewActivity: 'Review logged mistake on infinite recursion & stack overflow in tree path sum',
+          targetSkill: 'Binary Trees',
+          whySelected: `Calibrated proficiency ${binaryTreeAssessment?.calibratedProficiency ?? 1}/5 (contradicted) → recursion guards prioritized.`,
+          expectedOutcome: 'Safe base-case recursion.',
+          pedagogicalCategory: 'REMEDIATION',
+        });
+      }
+
+      if (isAdvTreeGap || isDpGap) {
+        days.push({
+          topic: 'Advanced Tree Patterns & 1D Dynamic Programming Foundations',
+          learn: 'Bridge tree and DP gaps: queue-based BFS level-order iteration, Lowest Common Ancestor (LCA), and 1D memoization & tabulation patterns (Coin Change, Climbing Stairs).',
+          practiceCount: 4,
+          reviewActivity: 'Document 1D state transition equations and verify base-case initialization in study notes',
+          targetSkill: 'Dynamic Programming',
+          whySelected: 'Bridge unencountered concept gaps in advanced trees and DP.',
+          expectedOutcome: 'Grounded understanding of BFS and 1D memoization.',
+          pedagogicalCategory: 'NEW_CONCEPT',
+        });
+
+        days.push({
+          topic: 'Dynamic Programming — 2D Grids, Subsequences & Knapsack Optimization',
+          learn: 'Advance to multi-dimensional DP: grid path counting with obstacles, 0/1 Knapsack decision branches, and Longest Common Subsequence state tables.',
+          practiceCount: 4,
+          reviewActivity: 'Review memory complexity trade-offs: reducing 2D grid DP tables from O(M*N) to O(N) auxiliary space',
+          targetSkill: 'Dynamic Programming',
+          whySelected: 'Multi-dimensional DP pattern mastery.',
+          expectedOutcome: '2D grid path and knapsack formulation.',
+          pedagogicalCategory: 'NEW_CONCEPT',
+        });
+      }
+
+      days.push({
+        topic: 'Technical Interview Simulation — Timed Mixed Problem Execution',
+        learn: 'Full mock interview simulation: solve 4 mixed medium challenges across Trees, DP, and Arrays in timed 45-minute blocks with explicit time/space complexity analysis.',
+        practiceCount: 4,
+        reviewActivity: 'Audit full mistake log: verify zero recurrence of pointer null dereference or recursion base-case traps',
+        targetSkill: 'Data Structures & Algorithms',
+        whySelected: 'Full mock interview under timed pressure.',
+        expectedOutcome: 'Interview execution readiness.',
+        pedagogicalCategory: 'INTERVIEW_SIMULATION',
+      });
+
+      return days;
+    }
+
+    if (numDays <= 3) {
+      days.push({
+        topic: 'Remediate Weak Areas — Linked Lists & Binary Tree Traversal Guards',
+        learn: 'Targeted pointer and recursion remediation: cycle detection invariants, in-place reversal, and explicit null base-case guards in tree DFS to prevent stack overflows.',
+        practiceCount: 4,
+        reviewActivity: 'Review logged mistakes on pointer null dereference and recursion base cases',
+        targetSkill: 'Binary Trees',
+        whySelected: 'Urgent mistake remediation across pointer and recursion traps.',
+        expectedOutcome: 'Eliminate active bugs in lists and trees.',
+        pedagogicalCategory: 'REMEDIATION',
+      });
+
+      days.push({
+        topic: 'Bridge Gaps — Dynamic Programming 1D/2D Foundations & Subproblems',
+        learn: 'Focus on DP formulation: memoization vs tabulation, state transitions for 1D arrays and 2D grids, and space optimization patterns.',
+        practiceCount: 4,
+        reviewActivity: 'Document 1D/2D state transition equations in study notes',
+        targetSkill: 'Dynamic Programming',
+        whySelected: 'Fast-track DP essentials.',
+        expectedOutcome: 'Grounded DP state formulation.',
+        pedagogicalCategory: 'NEW_CONCEPT',
+      });
+
+      if (numDays === 3) {
+        days.push({
+          topic: 'Interview Simulation — Timed Mixed Problem Solving & Consolidation',
+          learn: 'Simulate technical interview conditions: timed execution on mixed Tree, DP, and Array challenges with clean complexity analysis.',
+          practiceCount: 4,
+          reviewActivity: 'Final review of mistake log and prevention rules',
+          targetSkill: 'Data Structures & Algorithms',
+          whySelected: 'Timed simulation.',
+          expectedOutcome: 'Interview confidence.',
+          pedagogicalCategory: 'INTERVIEW_SIMULATION',
+        });
+      }
+
+      return days;
+    }
+  }
+
+  // Phase breakdown ratios (dynamic by total days for other domains like DBMS / OS)
   const hasWeakness = (() => {
     if (!assessment?.skillAssessments) return false;
     return assessment.skillAssessments.some(
@@ -407,9 +690,11 @@ function buildDayCurriculum(
       reviewActivity = 'Review all logged mistakes and update mistake log';
     } else if (fraction < 0.25) {
       // Foundation phase
-      const phaseLabel = isFoundationNeeded ? 'Foundations & Syntax' : 'Concept Review';
+      const phaseLabel = decisionType === 'REMEDIAL_PRACTICE'
+        ? 'Mistake Remediation & Pitfall Review'
+        : isFoundationNeeded ? 'Foundations & Syntax' : 'Concept Review';
       topic = `${primaryTargetSkill} — ${phaseLabel}`;
-      learn = `${isFoundationNeeded ? 'Core definitions, data structures, and fundamental patterns' : 'Key concepts, edge cases, and standard idioms'} of ${primaryTargetSkill}.`;
+      learn = `${decisionType === 'REMEDIAL_PRACTICE' ? 'Target logged mistakes, misconceptions, and anti-patterns' : isFoundationNeeded ? 'Core definitions, data structures, and fundamental patterns' : 'Key concepts, edge cases, and standard idioms'} of ${primaryTargetSkill}.`;
       practiceCount = 3;
       reviewActivity = 'Review existing notes and identify knowledge gaps';
     } else if (fraction < 0.55) {
@@ -434,7 +719,7 @@ function buildDayCurriculum(
       reviewActivity = 'Full mistake log review; note remaining gaps for future study';
     }
 
-    days.push({ topic, learn, practiceCount, reviewActivity });
+    days.push({ topic, learn, practiceCount, reviewActivity, targetSkill: primaryTargetSkill });
   }
 
   return days;
@@ -458,7 +743,6 @@ function generateDayByDaySteps(ctx: StepGenerationContext & { numDays: number })
     (p: import('./assessment-types').ObservableLearningPattern) => p.category === 'MISTAKE_TREND'
   ).length ?? 0;
 
-
   // Build curriculum skeleton
   const curriculum = buildDayCurriculum(numDays, primaryTargetSkill, decision.decisionType, assessment);
 
@@ -469,8 +753,8 @@ function generateDayByDaySteps(ctx: StepGenerationContext & { numDays: number })
     const day = curriculum[d];
     const isLast = dayNum === numDays;
 
-    // Evidence-driven effort for this day
-    const daySkill = d < Math.floor(numDays * 0.6) ? primaryTargetSkill : primaryTargetSkill;
+    // Evidence-driven effort for this day: use specific day's targetSkill if defined
+    const daySkill = day.targetSkill || primaryTargetSkill;
     const { minutes, priority, rationale: evidenceRationale } = deriveEffortFromEvidence(
       daySkill,
       assessment,
@@ -488,8 +772,10 @@ function generateDayByDaySteps(ctx: StepGenerationContext & { numDays: number })
       priority,
       status: d === 0 ? 'READY' : 'PENDING',
       dependencies: prevStepId ? [prevStepId] : [],
-      prerequisites: d === 0 ? [] : [`Day ${d} completed`],
-      targetSkill: primaryTargetSkill,
+      prerequisites: d === 0
+        ? (assessment?.supportedStrengths || []).map((s) => `${s} (Already demonstrated foundation)`)
+        : [`Day ${d} completed`],
+      targetSkill: daySkill,
       requiredTools: null,
       constraints: [
         `Complete within Day ${dayNum} study block`,
@@ -516,11 +802,18 @@ function generateDayByDaySteps(ctx: StepGenerationContext & { numDays: number })
         totalDays: numDays,
         isDayByDay: true,
         topic: day.topic,
+        learningObjective: day.learn,
+        targetSkill: daySkill,
+        whySelected: day.whySelected || evidenceRationale,
+        expectedOutcome: day.expectedOutcome || `Mastery of ${day.topic}`,
+        practiceActivity: `${day.practiceCount} practice problem${day.practiceCount !== 1 ? 's' : ''}`,
+        reviewActivity: day.reviewActivity,
+        verificationCriteria: `${day.practiceCount} practice exercise${day.practiceCount !== 1 ? 's' : ''} completed and checked`,
+        pedagogicalCategory: day.pedagogicalCategory || (d === numDays - 1 ? 'INTERVIEW_SIMULATION' : d === numDays - 2 ? 'MIXED_PRACTICE' : 'REMEDIATION'),
         learnContent: day.learn,
         practiceProblems: day.practiceCount,
-        reviewActivity: day.reviewActivity,
         aiEstimatedMinutes: minutes,
-        evidenceRationale,
+        evidenceRationale: day.whySelected || evidenceRationale,
         timeframe: goalUnderstanding?.timeframe ?? null,
       },
     });
@@ -538,10 +831,16 @@ function generateStepsForDecisionType(ctx: StepGenerationContext): {
   requiredTools: string[];
   planConstraints: string[];
 } {
-  // --- Day-by-day override when a parseable timeframe exists ---
+  // --- Day-by-day override when a parseable timeframe exists or for interview/comprehensive prep ---
   const timeframeDays = parseTimeframeDays(ctx.goalUnderstanding?.timeframe);
+  const isInterviewOrComprehensive = 
+    ctx.decision.decisionType === 'PREPARE_FOR_ASSESSMENT' ||
+    /interview|placement|roadmap|prepare|curriculum|dsa|technical interview/i.test(ctx.goalUnderstanding?.originalGoal || '');
+
   if (timeframeDays !== null && timeframeDays >= 1) {
     return generateDayByDaySteps({ ...ctx, numDays: timeframeDays });
+  } else if (isInterviewOrComprehensive) {
+    return generateDayByDaySteps({ ...ctx, numDays: 7 });
   }
 
   // --- Fallback: existing 2-step per-decision-type templates ---
@@ -552,17 +851,18 @@ function generateStepsForDecisionType(ctx: StepGenerationContext): {
 
   switch (decision.decisionType) {
     case 'ASSESS_SKILL': {
+      requiredTools.push('get_skills', 'get_projects', 'get_leetcode_activity', 'run_diagnostic_assessment');
       steps.push({
         id: `${planId}_step_1`,
-        title: `Core Concept Review: ${primaryTargetSkill} Fundamentals`,
-        description: `Review fundamental concepts, syntax patterns, and core principles of ${primaryTargetSkill} to establish a clear baseline.`,
+        title: `Retrieve Available Telemetry for ${primaryTargetSkill}`,
+        description: `Retrieve existing student telemetry and activity records for ${primaryTargetSkill} to establish a clear baseline.`,
         rationale: 'Reviewing core concepts establishes a solid baseline for deliberate practice.',
         priority: decision.priority,
         status: 'READY',
         dependencies: [],
         prerequisites: [],
         targetSkill: primaryTargetSkill,
-        requiredTools: null,
+        requiredTools: ['get_skills', 'get_projects', 'get_leetcode_activity'],
         constraints: ['Focus on fundamental definitions, standard patterns, and mental models.'],
         successCriteria: [
           `Review core concept definitions and syntax rules for ${primaryTargetSkill}`,
@@ -575,18 +875,18 @@ function generateStepsForDecisionType(ctx: StepGenerationContext): {
 
       steps.push({
         id: `${planId}_step_2`,
-        title: `Hands-on Diagnostic Exercises in ${primaryTargetSkill}`,
-        description: `Complete 6 to 8 targeted beginner exercises to gauge practical problem-solving capability.`,
+        title: `Interactive Diagnostic Assessment in ${primaryTargetSkill}`,
+        description: `Complete targeted diagnostic exercises to gauge practical problem-solving capability.`,
         rationale: 'Practical exercises demonstrate operational ability and identify immediate areas for improvement.',
         priority: decision.priority,
-        status: 'PENDING',
+        status: 'BLOCKED',
         dependencies: [`${planId}_step_1`],
         prerequisites: ['Step 1 core concept review completed'],
         targetSkill: primaryTargetSkill,
-        requiredTools: null,
+        requiredTools: ['run_diagnostic_assessment'],
         constraints: ['Implement solutions independently before checking reference answers.'],
         successCriteria: [
-          `Complete 6-8 practical coding exercises in ${primaryTargetSkill}`,
+          `Complete practical diagnostic exercises in ${primaryTargetSkill}`,
           'Verify all exercise test cases execute successfully',
         ],
         verificationCriteria: [`Diagnostic exercise solutions completed and verified`],
@@ -748,6 +1048,7 @@ function generateStepsForDecisionType(ctx: StepGenerationContext): {
     }
 
     case 'REVIEW_MISTAKES': {
+      requiredTools.push('get_mistakes');
       steps.push({
         id: `${planId}_step_1`,
         title: `Analyze Recurring Misconceptions in ${primaryTargetSkill}`,
@@ -758,7 +1059,7 @@ function generateStepsForDecisionType(ctx: StepGenerationContext): {
         dependencies: [],
         prerequisites: [],
         targetSkill: primaryTargetSkill,
-        requiredTools: null,
+        requiredTools: ['get_mistakes'],
         constraints: ['Document exact root causes and write clean prevention notes.'],
         successCriteria: [
           `Identify 2-3 persistent mistake patterns in ${primaryTargetSkill}`,
@@ -832,6 +1133,7 @@ function generateStepsForDecisionType(ctx: StepGenerationContext): {
     }
 
     case 'PLAN_SCHEDULE': {
+      requiredTools.push('get_time_sessions', 'get_tasks');
       steps.push({
         id: `${planId}_step_1`,
         title: `Set Up Dedicated Study Schedule for ${primaryTargetSkill}`,
@@ -842,7 +1144,7 @@ function generateStepsForDecisionType(ctx: StepGenerationContext): {
         dependencies: [],
         prerequisites: [],
         targetSkill: primaryTargetSkill,
-        requiredTools: null,
+        requiredTools: ['get_time_sessions'],
         constraints: ['Fit within realistic weekly availability.'],
         successCriteria: [`Structured study schedule created and committed`],
         verificationCriteria: [`Study blocks scheduled and reviewed`],
@@ -871,39 +1173,40 @@ function generateStepsForDecisionType(ctx: StepGenerationContext): {
     }
 
     case 'CORROBORATE_EVIDENCE': {
+      requiredTools.push('get_skills', 'get_projects', 'get_leetcode_activity', 'get_github_activity');
       steps.push({
         id: `${planId}_step_1`,
-        title: `Concept Self-Review: ${primaryTargetSkill}`,
-        description: `Review fundamental concepts and patterns in ${primaryTargetSkill} with structured notes to establish verified mastery.`,
+        title: `Audit Telemetry Records for ${primaryTargetSkill}`,
+        description: `Retrieve and inspect existing telemetry records across database and external integrations for ${primaryTargetSkill}.`,
         rationale: 'Aligning concepts through active recall grounds understanding in verifiable knowledge.',
         priority: decision.priority,
         status: 'READY',
         dependencies: [],
         prerequisites: [],
         targetSkill: primaryTargetSkill,
-        requiredTools: null,
+        requiredTools: ['get_skills', 'get_projects', 'get_leetcode_activity', 'get_github_activity'],
         constraints: ['Focus on clear mental models and syntax accuracy.'],
-        successCriteria: [`Self-review notes logged for ${primaryTargetSkill}`],
-        verificationCriteria: [`Concept review notes completed and logged`],
-        estimatedEffort: { estimatedMinutes: 45, difficulty: 'EASY' },
+        successCriteria: [`Telemetry reviewed for ${primaryTargetSkill}`],
+        verificationCriteria: [`Telemetry inspected in working memory without claiming external sync`],
+        estimatedEffort: { estimatedMinutes: 30, difficulty: 'EASY' },
         requiresApproval: false,
       });
 
       steps.push({
         id: `${planId}_step_2`,
-        title: `Hands-on Code Implementation in ${primaryTargetSkill}`,
-        description: `Build a small functional project or solve 5 practice exercises to demonstrate operational proficiency.`,
-        rationale: 'Demonstrate operational ability through practical code implementation.',
+        title: `Analyze Corroboration Gaps for ${primaryTargetSkill}`,
+        description: `Evaluate consistency between student claims and retrieved telemetry for ${primaryTargetSkill}.`,
+        rationale: 'Identify verifiable strengths and unverified claims.',
         priority: decision.priority,
         status: 'PENDING',
         dependencies: [`${planId}_step_1`],
-        prerequisites: ['Step 1 self-review completed'],
+        prerequisites: ['Step 1 telemetry audit completed'],
         targetSkill: primaryTargetSkill,
         requiredTools: null,
-        constraints: ['Ensure clean, runnable code with zero syntax errors.'],
-        successCriteria: [`Practical exercise set or mini-project completed`],
-        verificationCriteria: [`Code solution executed and verified`],
-        estimatedEffort: { estimatedMinutes: 60, difficulty: 'MEDIUM' },
+        constraints: ['Perform in-memory comparison.'],
+        successCriteria: [`Corroboration evaluation completed`],
+        verificationCriteria: [`Corroboration audit completed in working memory without claiming external sync`],
+        estimatedEffort: { estimatedMinutes: 45, difficulty: 'MEDIUM' },
         requiresApproval: false,
       });
       break;
